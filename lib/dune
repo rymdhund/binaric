@@ -1,0 +1,5 @@
+(library
+  (name binaric)
+  (libraries angstrom)
+  (preprocess (pps ppx_deriving.show))
+)
