@@ -51,7 +51,7 @@ let segment_set = List.map
     );
     (
       mk_segment ~label:"a" "b" [`Value "c"],
-      "a: b | c"
+      "a: b = c"
     );
     (
       mk_segment "b" [],
@@ -71,7 +71,7 @@ let segment_set = List.map
     );
     (
       mk_segment ~label:"a" ~multiplier:2 "b" [`Value "c"],
-      "a: b | c * 2"
+      "a: b = c * 2"
     );
   ]
 
@@ -126,13 +126,13 @@ let program_set = List.map
       [
         mk_segment "a" [ `String "abc" ];
       ],
-      "a | \"abc\" "
+      "a = \"abc\" "
     );
     (
       [
         mk_segment "a" [ `String "\"" ];
       ],
-      "a | \"\\\"\" "
+      "a = \"\\\"\" "
     );
   ]
 
@@ -147,11 +147,12 @@ let check_eval exp s () =
 let eval_set = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
-    ([ '\x00' ], "d8 | 0 ");
-    ([ '\xff' ], "d8 | 255 ");
-    ([ '\xff' ], "d8 | -1 ");
+    ([ '\x00' ], "d8 = 0 ");
+    ([ '\xff' ], "d8 = 255 ");
+    ([ '\xff' ], "d8 = -1 ");
     ([ '\x00'; '\xff' ], "d8 [ 0 255 ] ");
     ([ '\x00'; '\xff' ], "h8 [ 0 ff ] ");
+    ([ '\x00'; '\x01' ], "d16 [ 1 ] ");
     ([ '\x00'; '\x01' ], "d16 [ 1 ] ");
   ]
 
@@ -166,12 +167,12 @@ let check_eval_fail expected s () =
 let eval_fail_set = List.map
   (fun (exp, s) -> ("eval fail program", `Quick, check_eval_fail exp s))
   [
-    ("d8: 256 is out of range", "d8 | 256 ");
-    ("d8: -255 is out of range", "d8 | -255 ");
-    (": Unexpected character: '-'", "d8 | 1-1 ");
-    ("Invalid decimal number: 0f", "d8 | 0f ");
-    ("h8: 100 is out of range", "h8 | 100 ");
-    ("Invalid hex number: -1", "h8 | -1 ");
+    ("d8: 256 is out of range", "d8 = 256 ");
+    ("d8: -255 is out of range", "d8 = -255 ");
+    (": Unexpected character: '-'", "d8 = 1-1 ");
+    ("Invalid decimal number: 0f", "d8 = 0f ");
+    ("h8: 100 is out of range", "h8 = 100 ");
+    ("Invalid hex number: -1", "h8 = -1 ");
   ]
 
 let () =

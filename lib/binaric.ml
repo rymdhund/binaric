@@ -87,7 +87,7 @@ module Parsers = struct
     value <|> quoted_string
 
   let single_parameter =
-    ws *> (char '|') *> ws *> param >>| (fun x -> [x])
+    ws *> (char '=') *> ws *> param >>| (fun x -> [x])
 
   let multi_parameter =
     ws *> (char '[') *> (many (ws' *> param)) <* ws' <* (char ']')
