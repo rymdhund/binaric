@@ -1,15 +1,21 @@
 EXCLUDE_QUERY_DIR
 B /home/user/ocaml/binaric/_opam/lib/angstrom
 B /home/user/ocaml/binaric/_opam/lib/bigstringaf
+B /home/user/ocaml/binaric/_opam/lib/containers
+B /home/user/ocaml/binaric/_opam/lib/containers/monomorphic
 B /home/user/ocaml/binaric/_opam/lib/ocaml
 B /home/user/ocaml/binaric/_opam/lib/ppx_deriving
 B /home/user/ocaml/binaric/_opam/lib/result
+B /home/user/ocaml/binaric/_opam/lib/uchar
 B ../_build/default/lib/.binaric.objs/byte
 S /home/user/ocaml/binaric/_opam/lib/angstrom
 S /home/user/ocaml/binaric/_opam/lib/bigstringaf
+S /home/user/ocaml/binaric/_opam/lib/containers
+S /home/user/ocaml/binaric/_opam/lib/containers/monomorphic
 S /home/user/ocaml/binaric/_opam/lib/ocaml
 S /home/user/ocaml/binaric/_opam/lib/ppx_deriving
 S /home/user/ocaml/binaric/_opam/lib/result
+S /home/user/ocaml/binaric/_opam/lib/uchar
 S .
 FLG -ppx '/home/user/ocaml/binaric/_build/default/.ppx/4c4b0dc849c26ef889ee6f55cb3a0672/ppx.exe --as-ppx --cookie '\''library-name="binaric"'\'''
 FLG -w @a-4-29-40-41-42-44-45-48-58-59-60-40 -strict-sequence -strict-formats -short-paths -keep-locs

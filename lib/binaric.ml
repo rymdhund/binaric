@@ -22,7 +22,7 @@ let string_of_chars chars =
   Buffer.contents buf
 
 module Ast = struct
-  type value = [ `Value of string | `String of string ] [@@ deriving show]
+  type value = [ `Numeric of string | `String of string ] [@@ deriving show]
 
   module Segment = struct
     type t = {
@@ -79,7 +79,7 @@ module Parsers = struct
     option None (label >>| some)
 
   let value =
-    lift2 (fun sign v -> `Value (sign ^ v))
+    lift2 (fun sign v -> `Numeric (sign ^ v))
       (option "" (char '-' >>| (fun _ -> "-")))
       (take_while1 is_param_char)
 
@@ -135,42 +135,72 @@ module Parsers = struct
 end
 
 module Eval = struct
+  let int_of_hex_res s: (int, string) result =
+    match int_of_string_opt ("0x" ^ s) with
+    | None -> Error (Format.sprintf "Invalid hex number: \"%s\"" s)
+    | Some n -> Ok n
 
-  let int_of_hex s =
-    try
-      Scanf.sscanf s "%x%!" (fun x -> Some x)
-    with Scanf.Scan_failure _ ->
-      None
+  let get_value v =
+    match v with
+    | `Numeric s -> Ok s
+    | `String s -> Error (Format.sprintf "Invalid string \"%s\", expected numeric" s)
+
+  let int_of_string_res s =
+    match int_of_string_opt s with
+    | None -> Error (Format.sprintf "Invalid decimal number: %s" s)
+    | Some n -> Ok n
+
+
+  (* The builtin Int32.of_string needs 0u prepended to string to parse unsigned integers bigger than 0x7fffffff *)
+  let int32_of_string_res (s:string) =
+    let s2 = match String.get s 0 with
+    | '-' -> s
+    | _ -> "0u" ^ s
+    in
+    match Int32.of_string_opt s2 with
+      | None -> Error (Format.sprintf "Invalid 32 bit decimal number: \"%s\"" s)
+      | Some n -> Ok n
+
+  let result_bind res f =
+    match res with
+    | Ok x -> f x
+    | Error _ as e -> e
+
+  let (>>=) = result_bind
+
 
   let d8 v =
-    match v with
-    | `Value s -> (
-        match int_of_string_opt s with
-        | None -> Error (Format.sprintf "Invalid decimal number: %s" s)
-        | Some n when n > 255 || n < -254 -> Error (Format.sprintf "d8: %d is out of range" n)
-        | Some n -> Ok [char_of_int (n land 0xff)]
-    )
-    | `String s -> Error (Format.sprintf "d8 can not handle strings. It is being applied to \"%s\"" s)
+    get_value v >>= int_of_string_res >>= fun n ->
+    if n > 255 || n < -254
+    then Error (Format.sprintf "d8: %d is out of range" n)
+    else Ok [char_of_int (n land 0xff)]
 
   let d16 v =
-    match v with
-    | `Value s -> (
-        match int_of_string_opt s with
-        | None -> Error (Format.sprintf "Invalid decimal number: %s" s)
-        | Some n when n > 0xffff || n <= -0xffff -> Error (Format.sprintf "d16: %d is out of range" n)
-        | Some n -> Ok [(char_of_int ((n lsr 8) land 0xff)); (char_of_int (n land 0xff))]
-    )
-    | `String s -> Error (Format.sprintf "d8 can not handle strings. It is being applied to \"%s\"" s)
+    get_value v >>= int_of_string_res >>= fun n ->
+    if n > 0xffff || n <= -0xffff
+    then Error (Format.sprintf "d16: %d is out of range" n)
+    else Ok [(char_of_int ((n lsr 8) land 0xff)); (char_of_int (n land 0xff))]
+
+  let chars_of_int32 n =
+    let (lsr) = Int32.shift_right_logical in
+    let (land) = Int32.logand in
+    let to_char i = char_of_int (Int32.to_int i) in
+    [
+      to_char ((n lsr 24) land 0xffl);
+      to_char ((n lsr 16) land 0xffl);
+      to_char ((n lsr 8) land 0xffl);
+      to_char (n land 0xffl)
+    ]
+
+  let d32 v =
+    get_value v >>= int32_of_string_res >>= fun n ->
+    Ok (chars_of_int32 n)
 
   let h8 v =
-    match v with
-    | `Value s -> (
-        match int_of_hex s with
-        | None -> Error (Format.sprintf "Invalid hex number: %s" s)
-        | Some n when n > 0xff || n < 0 -> Error (Format.sprintf "h8: %s is out of range" s)
-        | Some n -> Ok [char_of_int n]
-    )
-    | `String s -> Error (Format.sprintf "h8 can not handle strings. It is being applied to \"%s\"" s)
+    get_value v >>= int_of_hex_res >>= fun n ->
+    if n > 0xff || n < 0
+    then Error (Format.sprintf "h8: %x is out of range" n)
+    else Ok [char_of_int n]
 
   let rec result_map f xs =
     match xs with
@@ -190,6 +220,7 @@ module Eval = struct
         | "d8" -> result_map d8 parameters
         | "h8" -> result_map h8 parameters
         | "d16" -> result_map d16 parameters
+        | "d32" -> result_map d32 parameters
         | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
 
   let eval prog =

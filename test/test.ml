@@ -50,7 +50,7 @@ let segment_set = List.map
       "f-o_o: a-b_c"
     );
     (
-      mk_segment ~label:"a" "b" [`Value "c"],
+      mk_segment ~label:"a" "b" [`Numeric "c"],
       "a: b = c"
     );
     (
@@ -58,11 +58,11 @@ let segment_set = List.map
       "b [ ]"
     );
     (
-      mk_segment ~label:"a" "b" [`Value "c"],
+      mk_segment ~label:"a" "b" [`Numeric "c"],
       "a: b [ c ]"
     );
     (
-      mk_segment ~label:"a" "b" [`Value "c"; `Value "d"],
+      mk_segment ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
       "a: b [ c d ]"
     );
     (
@@ -70,7 +70,7 @@ let segment_set = List.map
       "b * 10"
     );
     (
-      mk_segment ~label:"a" ~multiplier:2 "b" [`Value "c"],
+      mk_segment ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
       "a: b = c * 2"
     );
   ]
@@ -106,19 +106,19 @@ let program_set = List.map
     );
     (
       [
-        mk_segment "a" [ `Value "b"; `Value "c" ];
+        mk_segment "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b c ]"
     );
     (
       [
-        mk_segment "a" [ `Value "b"; `Value "c" ];
+        mk_segment "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ]"
     );
     (
       [
-        mk_segment "a" [ `Value "b"; `Value "c" ];
+        mk_segment "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ] \n "
     );
@@ -154,6 +154,10 @@ let eval_set = List.map
     ([ '\x00'; '\xff' ], "h8 [ 0 ff ] ");
     ([ '\x00'; '\x01' ], "d16 [ 1 ] ");
     ([ '\x00'; '\x01' ], "d16 [ 1 ] ");
+    ([ '\x00'; '\x01'; '\x00'; '\xff' ], "d16 [ 1 255 ] ");
+    ([ '\x00'; '\x00'; '\x00'; '\x01' ], "d32 = 1 ");
+    ([ '\xff'; '\xff'; '\xff'; '\xff'; ], "d32 = 4294967295 ");
+    ([ '\xff'; '\xff'; '\xff'; '\xff'; ], "d32 = -1 ");
   ]
 
 let check_eval_fail expected s () =
@@ -172,7 +176,9 @@ let eval_fail_set = List.map
     (": Unexpected character: '-'", "d8 = 1-1 ");
     ("Invalid decimal number: 0f", "d8 = 0f ");
     ("h8: 100 is out of range", "h8 = 100 ");
-    ("Invalid hex number: -1", "h8 = -1 ");
+    ("Invalid hex number: \"-1\"", "h8 = -1 ");
+    ("Invalid 32 bit decimal number: \"4294967296\"", "d32 = 4294967296");
+    ("Invalid 32 bit decimal number: \"-4294967295\"", "d32 = -4294967295");
   ]
 
 let () =
