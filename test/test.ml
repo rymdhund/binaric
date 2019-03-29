@@ -143,22 +143,22 @@ let check_eval exp s () =
 let eval_oneliners_set = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
-    ("\x00", "d8 = 0 ");
-    ("\xff", "d8 = 255 ");
-    ("\xff", "d8 = -1 ");
+    ("\x00", "d8  0 ");
+    ("\xff", "d8  255 ");
+    ("\xff", "d8  -1 ");
     ("\x00\xff", "d8 [ 0 255 ] ");
     ("\x00\xff", "h8 [ 0 ff ] ");
     ("\x00\x01", "d16 [ 1 ] ");
     ("\x00\x01", "d16 [ 1 ] ");
     ("\x00\x01\x00\xff", "d16 [ 1 255 ] ");
-    ("\x00\x00\x00\x01", "d32 = 1 ");
-    ("\xff\xff\xff\xff", "d32 = 4294967295 ");
-    ("\xff\xff\xff\xff", "d32 = -1 ");
-    ("\x00", "{d8 = 0}");
-    ("\x00", "{ d8 = 0 }");
-    ("\x00", "{\nd8 = 0\n}");
-    ("\x00", "{ \n d8 = 0 \n }");
-    ("\x00", "a:d8=0");
+    ("\x00\x00\x00\x01", "d32  1 ");
+    ("\xff\xff\xff\xff", "d32  4294967295 ");
+    ("\xff\xff\xff\xff", "d32  -1 ");
+    ("\x00", "{d8  0}");
+    ("\x00", "{ d8  0 }");
+    ("\x00", "{\nd8  0\n}");
+    ("\x00", "{ \n d8  0 \n }");
+    ("\x00", "a:d8 0");
   ]
 
 
@@ -167,53 +167,55 @@ let eval_multiliners_set = List.map
   [
     (
       "\x00\xff", {|
-      d8 = 0
-      d8 = 255|}
+      d8 0
+      d8 255|}
     );
     (
       "\x00\xff\xff", {|
       h8 [
-        00
-        ff
-      ]
-      h8 = ff
+          00
+          ff
+         ]
+      h8  ff
       |}
     );
     (
       "\x00\xff\xf0", {|
-      h8 = 00 #comment1
-      h8 = ff #comment2
-      h8 = f0 #comment3"
+      h8  00 #comment1
+      h8  ff #comment2
+      h8  f0 #comment3"
       |}
     );
     (
       "\015\002\254\x00\xff\x00\xff", {|
-      size:   d8 = 15
-      width:  d8 = 2
-      height: d8 = -2
-      data:   h8 [ 00 ff 00 ff ]
+      size:   d8  15
+      width:  d8  2
+      height: d8  -2
+      data:   {
+              h8 [ 00 ff 00 ff ]
+      }
       |}
     );
     (
       "\015\002\254\x00\xff\x00\xff", {|
-      size:   d8 = 15
-      width:  d8 = 2
-      height: d8 = -2
+      size:   d8   15
+      width:  d8   2
+      height: d8   -2
       data:   h8 [ 00 ff 00 ff ]
       |}
     );
     (
       "\xff", {|
       a: {
-        h8 = ff
+        h8   ff
       }
       |}
     );
     (
       "\xff\xff", {|
       a: {
-        h8 = ff
-        h8 = ff
+        h8   ff
+        h8   ff
       }
       |}
     );
@@ -228,21 +230,21 @@ let eval_multiliners_set = List.map
     (
       "\001\002\003", {|
       a: { #comment
-        one:   d8 = 1
+        one:     d8   1
         b: {
-          two:  d8 = 2
-          three: d8 = 3
+          two:   d8   2
+          three: d8   3
         }
       }
       |}
     );
     (
       "\001\002\003", {|
-      one:   d8 = 1
+      one:   d8  1
       # comment
       # comment
-      two:   d8 = 2
-      three: d8 = 3
+      two:   d8  2
+      three: d8  3
       |}
     );
     (
@@ -253,6 +255,11 @@ let eval_multiliners_set = List.map
       ]
       |}
     );
+  ]
+
+let eval_const_set = List.map
+  (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
+  [
   ]
 
 let check_eval_fail expected s () =
@@ -266,14 +273,14 @@ let check_eval_fail expected s () =
 let eval_fail_set = List.map
   (fun (exp, s) -> ("eval fail program", `Quick, check_eval_fail exp s))
   [
-    ("d8: 256 is out of range", "d8 = 256 ");
-    ("d8: -255 is out of range", "d8 = -255 ");
-    (": Unexpected character: '-'", "d8 = 1-1 ");
-    ("Invalid decimal number: 0f", "d8 = 0f ");
-    ("h8: 100 is out of range", "h8 = 100 ");
-    ("Invalid hex number: \"-1\"", "h8 = -1 ");
-    ("Invalid 32 bit decimal number: \"4294967296\"", "d32 = 4294967296");
-    ("Invalid 32 bit decimal number: \"-4294967295\"", "d32 = -4294967295");
+    ("d8: 256 is out of range", "d8  256 ");
+    ("d8: -255 is out of range", "d8  -255 ");
+    (": Unexpected character: '-'", "d8  1-1 ");
+    ("Invalid decimal number: 0f", "d8  0f ");
+    ("h8: 100 is out of range", "h8  100 ");
+    ("Invalid hex number: \"-1\"", "h8  -1 ");
+    ("Invalid 32 bit decimal number: \"4294967296\"", "d32  4294967296");
+    ("Invalid 32 bit decimal number: \"-4294967295\"", "d32  -4294967295");
   ]
 
 let () =
@@ -282,5 +289,6 @@ let () =
     "program_set", program_set;
     "eval_oneliners_set", eval_oneliners_set;
     "eval_multiliners_set", eval_multiliners_set;
+    "eval_const_set", eval_const_set;
     "eval_fail_set", eval_fail_set;
   ]

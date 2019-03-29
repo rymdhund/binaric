@@ -111,13 +111,13 @@ module Parsers = struct
     value <|> quoted_string
 
   let single_parameter =
-    (char '=') *> ws0 *> param >>| (fun x -> [x])
+    param >>| (fun x -> [x])
 
   let multi_parameter =
     (char '[') *> wsc0 *> sep_by wsc0 param  <* wsc0 <* (char ']')
 
   let parameters =
-    single_parameter <|> multi_parameter <|> (return [])
+    multi_parameter <|> single_parameter <|> (return [])
 
   let multiplier =
     (char '*') *> ws0 *> (take_while1 is_digit) >>| int_of_string
