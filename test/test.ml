@@ -166,82 +166,92 @@ let eval_multiliners_set = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
     (
-      "\x00\xff",
-      "d8 = 0\n" ^
-      "d8 = 255"
+      "\x00\xff", {|
+      d8 = 0
+      d8 = 255|}
     );
     (
-      "\x00\xff\xff",
-      "h8 [\n" ^
-      "  00\n" ^
-      "  ff\n" ^
-      "]\n" ^
-      "h8 = ff"
+      "\x00\xff\xff", {|
+      h8 [
+        00
+        ff
+      ]
+      h8 = ff
+      |}
     );
     (
-      "\x00\xff\xf0",
-      "h8 = 00 #comment\n" ^
-      "h8 = ff #comment2\n" ^
-      "h8 = f0 #comment3"
+      "\x00\xff\xf0", {|
+      h8 = 00 #comment1
+      h8 = ff #comment2
+      h8 = f0 #comment3"
+      |}
     );
     (
-      "\015\002\254\x00\xff\x00\xff",
-      "size:   d8 = 15\n" ^
-      "width:  d8 = 2\n" ^
-      "height: d8 = -2\n" ^
-      "data:   h8 [ 00 ff 00 ff ]"
+      "\015\002\254\x00\xff\x00\xff", {|
+      size:   d8 = 15
+      width:  d8 = 2
+      height: d8 = -2
+      data:   h8 [ 00 ff 00 ff ]
+      |}
     );
     (
-      "\015\002\254\x00\xff\x00\xff",
-      "size:   d8 = 15\n" ^
-      "width:  d8 = 2\n" ^
-      "height: d8 = -2\n" ^
-      "data:   h8 [ 00 ff 00 ff ]"
+      "\015\002\254\x00\xff\x00\xff", {|
+      size:   d8 = 15
+      width:  d8 = 2
+      height: d8 = -2
+      data:   h8 [ 00 ff 00 ff ]
+      |}
     );
     (
-      "\xff",
-      "a: {\n" ^
-      "h8 = ff\n" ^
-      "}"
+      "\xff", {|
+      a: {
+        h8 = ff
+      }
+      |}
     );
     (
-      "\xff\xff",
-      "a: {\n" ^
-      "h8 = ff\n" ^
-      "h8 = ff\n" ^
-      "}"
+      "\xff\xff", {|
+      a: {
+        h8 = ff
+        h8 = ff
+      }
+      |}
     );
     (
-      "",
-      "a: {\n" ^
-      "b:{\n" ^
-      "}\n" ^
-      "}\n"
+      "", {|
+      a:{
+      b:{
+      }
+      }
+      |}
     );
     (
-      "\001\002\003",
-      "a: { #comment\n" ^
-      "  one:   d8 = 1\n" ^
-      "  b: { \n" ^
-      "    two:  d8 = 2\n" ^
-      "    three: d8 = 3\n" ^
-      "  }\n" ^
-      "}"
+      "\001\002\003", {|
+      a: { #comment
+        one:   d8 = 1
+        b: {
+          two:  d8 = 2
+          three: d8 = 3
+        }
+      }
+      |}
     );
     (
-      "\001\002\003",
-      "one:   d8 = 1\n" ^
-      "# comment\n" ^
-      "# comment\n" ^
-      "two:  d8 = 2\n" ^
-      "three: d8 = 3\n"
+      "\001\002\003", {|
+      one:   d8 = 1
+      # comment
+      # comment
+      two:   d8 = 2
+      three: d8 = 3
+      |}
     );
     (
-      "abcdef",
-      "asc [\n" ^
-      " \"abc\"\n" ^
-      " \"def\"\n" ^
-      "]"
+      "abcdef", {|
+      asc [
+       "abc"
+       "def"
+      ]
+      |}
     );
   ]
 
