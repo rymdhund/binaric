@@ -2,68 +2,71 @@ module Ast = Binaric.Ast
 module Parsers = Binaric.Parsers
 module Eval = Binaric.Eval
 
-let segment_eq (a:Ast.Segment.t) (b:Ast.Segment.t) =
-  a.label = b.label &&
+let segment_eq (a:Ast.Computation.t) (b:Ast.Computation.t) =
   a.identifier = b.identifier &&
   a.parameters = b.parameters &&
   a.multiplier = b.multiplier
 
-let segment = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Segment.show seg)) segment_eq
+let segment = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Computation.show seg)) segment_eq
+let element = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Expression.show seg)) (Ast.Expression.equal)
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
 
 
-let check_parse_segment exp s () =
-  match Angstrom.parse_string Parsers.segment s with
+let check_parse_element exp s () =
+  match Angstrom.parse_string Parsers.element s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.check segment "same segment" exp seg
+    Alcotest.check element "same segment" exp seg
 
 let check_parse exp s () =
   match Angstrom.parse_string Parsers.program s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.(check (list segment)) "same program" exp seg
+    Alcotest.(check (list element)) "same program" exp seg
 
-let mk_segment ?label ?multiplier identifier parameters =
-  Ast.Segment.{ label; multiplier; identifier; parameters }
+let mk_segment multiplier identifier parameters =
+  Ast.Computation.{ multiplier; identifier; parameters }
+
+let mk_element ?label ?multiplier identifier parameters =
+  Ast.Expression.{ label; expr = Computation (mk_segment multiplier identifier parameters) }
 
 let segment_set = List.map
-  (fun (exp, s) -> ("parse segment", `Quick, check_parse_segment exp s))
+  (fun (exp, s) -> ("parse segment", `Quick, check_parse_element exp s))
   [
     (
-      mk_segment "abc" [],
+      mk_element "abc" [],
       "abc"
     );
     (
-      mk_segment ~label:"foo" "abc" [],
+      mk_element ~label:"foo" "abc" [],
       "foo: abc"
     );
     (
-      mk_segment ~label:"f-o_o" "a-b_c" [],
+      mk_element ~label:"f-o_o" "a-b_c" [],
       "f-o_o: a-b_c"
     );
     (
-      mk_segment ~label:"a" "b" [`Numeric "c"],
+      mk_element ~label:"a" "b" [`Numeric "c"],
       "a: b = c"
     );
     (
-      mk_segment "b" [],
+      mk_element "b" [],
       "b [ ]"
     );
     (
-      mk_segment ~label:"a" "b" [`Numeric "c"],
+      mk_element ~label:"a" "b" [`Numeric "c"],
       "a: b [ c ]"
     );
     (
-      mk_segment ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
+      mk_element ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
       "a: b [ c d ]"
     );
     (
-      mk_segment ~multiplier:10 "b" [],
+      mk_element ~multiplier:10 "b" [],
       "b * 10"
     );
     (
-      mk_segment ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
+      mk_element ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
       "a: b = c * 2"
     );
   ]
@@ -73,57 +76,57 @@ let program_set = List.map
   [
     (
       [
-        mk_segment "a" [];
-        mk_segment "b" [];
+        mk_element "a" [];
+        mk_element "b" [];
       ],
       "a\nb"
     );
     (
       [
-        mk_segment "a" [];
-        mk_segment "b" [];
+        mk_element "a" [];
+        mk_element "b" [];
       ],
       "a # comment\nb"
     );
     (
       [
-        mk_segment "a" [];
+        mk_element "a" [];
       ],
       "# comment\na"
     );
     (
       [
-        mk_segment "a" [];
+        mk_element "a" [];
       ],
       "\na"
     );
     (
       [
-        mk_segment "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_element "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b c ]"
     );
     (
       [
-        mk_segment "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_element "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ]"
     );
     (
       [
-        mk_segment "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_element "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ] \n "
     );
     (
       [
-        mk_segment "a" [ `String "abc" ];
+        mk_element "a" [ `String "abc" ];
       ],
       "a = \"abc\" "
     );
     (
       [
-        mk_segment "a" [ `String "\"" ];
+        mk_element "a" [ `String "\"" ];
       ],
       "a = \"\\\"\" "
     );

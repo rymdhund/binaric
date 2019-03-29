@@ -22,15 +22,25 @@ let string_of_chars chars =
   Buffer.contents buf
 
 module Ast = struct
-  type value = [ `Numeric of string | `String of string ] [@@ deriving show]
+  type value = [ `Numeric of string | `String of string ] [@@ deriving show, eq]
 
-  module Segment = struct
+  module Computation = struct
     type t = {
-      label: string option;
       identifier: string;
       parameters: value list;
       multiplier: int option;
-    } [@@ deriving show]
+    } [@@ deriving show, eq]
+  end
+
+  module Expression = struct
+    type t = {
+       label: string option;
+       expr: unlabeled
+    } [@@ deriving show, eq]
+    and unlabeled =
+      | Computation of Computation.t
+      | Block of t list
+    [@@ deriving show, eq]
   end
 end
 
@@ -108,16 +118,18 @@ module Parsers = struct
     | None -> return ()
 
   let segment =
-    lift4
+    lift3
     (
-      fun label identifier parameters multiplier ->
-      Ast.Segment.{label; identifier; parameters; multiplier}
+      fun identifier parameters multiplier ->
+      Ast.Computation.{identifier; parameters; multiplier}
     )
-    optional_label
     name
     parameters
     optional_multiplier
     <* optional_comment
+
+  let element =
+    lift2 (fun label seg -> Ast.Expression.{ label; expr = Computation seg}) optional_label segment
 
   let rec somefilter xs = match xs with
     | [] -> []
@@ -128,7 +140,7 @@ module Parsers = struct
     let some x = Some x in
     let none _ = None in
     many (
-      (segment >>| some)
+      (element >>| some)
       <|>
       (comment >>| none)
     ) <* end_of_input >>| somefilter
@@ -215,14 +227,13 @@ module Eval = struct
       result_map f xs >>= fun tail ->
       Ok (head :: tail)
 
-  let eval_seg seg =
+  let eval_computation (comp:Ast.Computation.t) =
     let result_map_to_string f xs =
       result_map f xs >>| CCString.concat ""
     in
-
-    match seg with
-    | Ast.Segment.{ identifier; parameters=[]; _ } -> Error (Format.sprintf "Unknown identifier \"%s\"" identifier)
-    | Ast.Segment.{ identifier; parameters; _ } ->
+    match comp with
+    | Ast.Computation.{ identifier; parameters=[]; _ } -> Error (Format.sprintf "Unknown identifier \"%s\"" identifier)
+    | Ast.Computation.{ identifier; parameters; _ } ->
         match identifier with
         | "d8" -> result_map_to_string d8 parameters
         | "h8" -> result_map_to_string h8 parameters
@@ -230,6 +241,12 @@ module Eval = struct
         | "d32" -> result_map_to_string d32 parameters
         | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
 
+  let rec eval_expression (expr:Ast.Expression.t) =
+    match expr with
+    | { expr=Computation c; _} -> eval_computation c
+    | { expr=Block exprs; _} ->
+        result_map eval_expression exprs >>| CCString.concat ""
+
   let eval prog: (string, string) result =
-    result_map eval_seg prog >>| CCString.concat ""
+    result_map eval_expression prog >>| CCString.concat ""
 end
