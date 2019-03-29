@@ -171,6 +171,14 @@ let eval_multiliners_set = List.map
       "d8 = 255"
     );
     (
+      "\x00\xff\xff",
+      "h8 [\n" ^
+      "  00\n" ^
+      "  ff\n" ^
+      "]\n" ^
+      "h8 = ff"
+    );
+    (
       "\x00\xff\xf0",
       "h8 = 00 #comment\n" ^
       "h8 = ff #comment2\n" ^
@@ -227,6 +235,13 @@ let eval_multiliners_set = List.map
       "# comment\n" ^
       "two:  d8 = 2\n" ^
       "three: d8 = 3\n"
+    );
+    (
+      "abcdef",
+      "asc [\n" ^
+      " \"abc\"\n" ^
+      " \"def\"\n" ^
+      "]"
     );
   ]
 

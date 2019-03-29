@@ -114,7 +114,7 @@ module Parsers = struct
     (char '=') *> ws0 *> param >>| (fun x -> [x])
 
   let multi_parameter =
-    (char '[') *> (many (wsc0 *> param)) <* wsc0 <* (char ']')
+    (char '[') *> wsc0 *> sep_by wsc0 param  <* wsc0 <* (char ']')
 
   let parameters =
     single_parameter <|> multi_parameter <|> (return [])
@@ -187,6 +187,11 @@ module Eval = struct
     | `Numeric s -> Ok s
     | `String s -> Error (Format.sprintf "Invalid string \"%s\", expected numeric" s)
 
+  let get_string v =
+    match v with
+    | `Numeric s -> Error (Format.sprintf "Invalid numeric \"%s\", expected string" s)
+    | `String s -> Ok s
+
   let int_of_string_res s =
     match int_of_string_opt s with
     | None -> Error (Format.sprintf "Invalid decimal number: %s" s)
@@ -249,6 +254,9 @@ module Eval = struct
     then Error (Format.sprintf "h8: %x is out of range" n)
     else Ok (CCString.of_char @@ char_of_int n)
 
+  let asc v =
+    get_string v
+
   let rec result_map (f: 'a -> ('b, string) result) (xs: 'a list): ('b list, string) result =
     match xs with
     | [] -> Ok []
@@ -269,6 +277,7 @@ module Eval = struct
         | "h8" -> result_map_to_string h8 parameters
         | "d16" -> result_map_to_string d16 parameters
         | "d32" -> result_map_to_string d32 parameters
+        | "asc" -> result_map_to_string asc parameters
         | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
 
   let rec eval_expression (expr:Ast.Expression.t) =
