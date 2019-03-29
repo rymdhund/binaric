@@ -61,28 +61,42 @@ module Parsers = struct
   let comment =
     char '#' <* skip_while (function | '\x0a' | '\x0d' -> false | _ -> true) <* advance 1 >>| ignore
 
-  let ws = skip_while (function
+  (* zero or more whitespace *)
+  let ws0 = skip_while (function
+    | '\x20' | '\x09' -> true
+    | _ -> false
+  )
+
+  (* exactly one newline *)
+  let nl = skip (function
+    | '\x0a' | '\x0d' -> true
+    | _ -> false
+  )
+
+  (* zero or more whitespace or newline characters *)
+  let wsnl0 = skip_while (function
     | '\x20' | '\x0a' | '\x0d' | '\x09' -> true
     | _ -> false
   )
 
-  let optional_comment =
-    ws <* option () comment
+  (* zero or more whitespace, comments or newlines *)
+  let wsc0 =
+    wsnl0 <* sep_by wsnl0 comment <* wsnl0
 
-  let ws' =
-    optional_comment <* ws
+  (* require a line ending *)
+  let eol =
+    ws0 <* (comment <|> nl <|> end_of_input) <* wsc0
 
   let name =
-    ws *>
     peek_char >>= function
       | None -> fail "EOF, expected name"
       | Some c ->
         if is_alpha c
         then take_while1 is_name_char
-        else fail (Format.sprintf "Invalid start of name: '%c'" c)
+        else fail (Format.sprintf "Invalid start of name: '%C'" c)
 
   let label =
-    ws *> name <* ws <* (char ':') <* ws
+    name <* ws0 <* (char ':')
 
   let optional_label =
     let some x = Some x in
@@ -97,16 +111,16 @@ module Parsers = struct
     value <|> quoted_string
 
   let single_parameter =
-    ws *> (char '=') *> ws *> param >>| (fun x -> [x])
+    (char '=') *> ws0 *> param >>| (fun x -> [x])
 
   let multi_parameter =
-    ws *> (char '[') *> (many (ws' *> param)) <* ws' <* (char ']')
+    (char '[') *> (many (wsc0 *> param)) <* wsc0 <* (char ']')
 
   let parameters =
     single_parameter <|> multi_parameter <|> (return [])
 
   let multiplier =
-    ws *> (char '*') *> ws *> (take_while1 is_digit) >>| int_of_string
+    (char '*') *> ws0 *> (take_while1 is_digit) >>| int_of_string
 
   let optional_multiplier =
     let some x = Some x in
@@ -114,36 +128,52 @@ module Parsers = struct
 
   let end_of_input =
     peek_char >>= function
-    | Some c -> fail (Format.sprintf "Unexpected character: '%c'" c)
+    | Some c -> fail (Format.sprintf "Unexpected character: %C" c)
     | None -> return ()
 
-  let segment =
+  let computation =
     lift3
     (
       fun identifier parameters multiplier ->
       Ast.Computation.{identifier; parameters; multiplier}
     )
-    name
-    parameters
+    (name <* ws0)
+    (parameters <* ws0)
     optional_multiplier
-    <* optional_comment
-
-  let element =
-    lift2 (fun label seg -> Ast.Expression.{ label; expr = Computation seg}) optional_label segment
 
   let rec somefilter xs = match xs with
     | [] -> []
     | Some x :: tail -> x :: somefilter tail
     | None :: tail -> somefilter tail
 
+  let comp_expr =
+    lift2
+      (fun label comp -> Ast.Expression.{ label; expr = Computation comp})
+      (optional_label <* ws0)
+      computation
+
+  let start_block = (char '{')
+
+  let end_block = (char '}')
+
+  let expression =
+    fix (fun expr ->
+      let unlabeled_block =
+        start_block *> wsc0 *> (sep_by eol expr) <* wsc0 <* end_block
+      in
+      let block =
+        lift2
+        (fun label exprs -> Ast.Expression.{ label; expr = Block exprs })
+        (optional_label  <* ws0)
+        unlabeled_block
+      in
+      choice [ comp_expr; block ]
+    )
+
   let program =
-    let some x = Some x in
-    let none _ = None in
-    many (
-      (element >>| some)
-      <|>
-      (comment >>| none)
-    ) <* end_of_input >>| somefilter
+    wsc0 *>
+    sep_by eol expression
+    <* wsc0 <* end_of_input
 end
 
 module Eval = struct

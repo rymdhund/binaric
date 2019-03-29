@@ -12,11 +12,11 @@ let element = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Exp
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
 
 
-let check_parse_element exp s () =
-  match Angstrom.parse_string Parsers.element s with
+let check_parse_expr expected s () =
+  match Angstrom.parse_string Parsers.expression s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.check element "same segment" exp seg
+    Alcotest.check element "same segment" expected seg
 
 let check_parse exp s () =
   match Angstrom.parse_string Parsers.program s with
@@ -24,49 +24,49 @@ let check_parse exp s () =
   | Ok seg ->
     Alcotest.(check (list element)) "same program" exp seg
 
-let mk_segment multiplier identifier parameters =
+let mk_computation multiplier identifier parameters =
   Ast.Computation.{ multiplier; identifier; parameters }
 
-let mk_element ?label ?multiplier identifier parameters =
-  Ast.Expression.{ label; expr = Computation (mk_segment multiplier identifier parameters) }
+let mk_expression ?label ?multiplier identifier parameters =
+  Ast.Expression.{ label; expr = Computation (mk_computation multiplier identifier parameters) }
 
-let segment_set = List.map
-  (fun (exp, s) -> ("parse segment", `Quick, check_parse_element exp s))
+let expression_set = List.map
+  (fun (exp, s) -> ("parse expression", `Quick, check_parse_expr exp s))
   [
     (
-      mk_element "abc" [],
+      mk_expression "abc" [],
       "abc"
     );
     (
-      mk_element ~label:"foo" "abc" [],
+      mk_expression ~label:"foo" "abc" [],
       "foo: abc"
     );
     (
-      mk_element ~label:"f-o_o" "a-b_c" [],
+      mk_expression ~label:"f-o_o" "a-b_c" [],
       "f-o_o: a-b_c"
     );
     (
-      mk_element ~label:"a" "b" [`Numeric "c"],
+      mk_expression ~label:"a" "b" [`Numeric "c"],
       "a: b = c"
     );
     (
-      mk_element "b" [],
+      mk_expression "b" [],
       "b [ ]"
     );
     (
-      mk_element ~label:"a" "b" [`Numeric "c"],
+      mk_expression ~label:"a" "b" [`Numeric "c"],
       "a: b [ c ]"
     );
     (
-      mk_element ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
+      mk_expression ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
       "a: b [ c d ]"
     );
     (
-      mk_element ~multiplier:10 "b" [],
+      mk_expression ~multiplier:10 "b" [],
       "b * 10"
     );
     (
-      mk_element ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
+      mk_expression ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
       "a: b = c * 2"
     );
   ]
@@ -76,57 +76,57 @@ let program_set = List.map
   [
     (
       [
-        mk_element "a" [];
-        mk_element "b" [];
+        mk_expression "a" [];
+        mk_expression "b" [];
       ],
       "a\nb"
     );
     (
       [
-        mk_element "a" [];
-        mk_element "b" [];
+        mk_expression "a" [];
+        mk_expression "b" [];
       ],
       "a # comment\nb"
     );
     (
       [
-        mk_element "a" [];
+        mk_expression "a" [];
       ],
       "# comment\na"
     );
     (
       [
-        mk_element "a" [];
+        mk_expression "a" [];
       ],
       "\na"
     );
     (
       [
-        mk_element "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_expression "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b c ]"
     );
     (
       [
-        mk_element "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_expression "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ]"
     );
     (
       [
-        mk_element "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_expression "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ] \n "
     );
     (
       [
-        mk_element "a" [ `String "abc" ];
+        mk_expression "a" [ `String "abc" ];
       ],
       "a = \"abc\" "
     );
     (
       [
-        mk_element "a" [ `String "\"" ];
+        mk_expression "a" [ `String "\"" ];
       ],
       "a = \"\\\"\" "
     );
@@ -154,7 +154,11 @@ let eval_oneliners_set = List.map
     ("\x00\x00\x00\x01", "d32 = 1 ");
     ("\xff\xff\xff\xff", "d32 = 4294967295 ");
     ("\xff\xff\xff\xff", "d32 = -1 ");
+    ("\x00", "{d8 = 0}");
     ("\x00", "{ d8 = 0 }");
+    ("\x00", "{\nd8 = 0\n}");
+    ("\x00", "{ \n d8 = 0 \n }");
+    ("\x00", "a:d8=0");
   ]
 
 
@@ -186,6 +190,44 @@ let eval_multiliners_set = List.map
       "height: d8 = -2\n" ^
       "data:   h8 [ 00 ff 00 ff ]"
     );
+    (
+      "\xff",
+      "a: {\n" ^
+      "h8 = ff\n" ^
+      "}"
+    );
+    (
+      "\xff\xff",
+      "a: {\n" ^
+      "h8 = ff\n" ^
+      "h8 = ff\n" ^
+      "}"
+    );
+    (
+      "",
+      "a: {\n" ^
+      "b:{\n" ^
+      "}\n" ^
+      "}\n"
+    );
+    (
+      "\001\002\003",
+      "a: { #comment\n" ^
+      "  one:   d8 = 1\n" ^
+      "  b: { \n" ^
+      "    two:  d8 = 2\n" ^
+      "    three: d8 = 3\n" ^
+      "  }\n" ^
+      "}"
+    );
+    (
+      "\001\002\003",
+      "one:   d8 = 1\n" ^
+      "# comment\n" ^
+      "# comment\n" ^
+      "two:  d8 = 2\n" ^
+      "three: d8 = 3\n"
+    );
   ]
 
 let check_eval_fail expected s () =
@@ -211,7 +253,7 @@ let eval_fail_set = List.map
 
 let () =
   Alcotest.run "Binaric Tests" [
-    "segment_set", segment_set;
+    "expression set", expression_set;
     "program_set", program_set;
     "eval_oneliners_set", eval_oneliners_set;
     "eval_multiliners_set", eval_multiliners_set;
