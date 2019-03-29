@@ -161,31 +161,36 @@ module Eval = struct
       | None -> Error (Format.sprintf "Invalid 32 bit decimal number: \"%s\"" s)
       | Some n -> Ok n
 
-  let result_bind res f =
-    match res with
-    | Ok x -> f x
-    | Error _ as e -> e
+  let (>>=) = CCResult.(>>=)
+  let (>>|) = CCResult.(>|=)
 
-  let (>>=) = result_bind
-
+  let string_of_chars chars =
+    let buf = Buffer.create (List.length chars) in
+    List.iter (Buffer.add_char buf ) chars;
+    Ok (Buffer.contents buf)
 
   let d8 v =
     get_value v >>= int_of_string_res >>= fun n ->
     if n > 255 || n < -254
     then Error (Format.sprintf "d8: %d is out of range" n)
-    else Ok [char_of_int (n land 0xff)]
+    else Ok (CCString.of_char @@ char_of_int (n land 0xff))
 
   let d16 v =
     get_value v >>= int_of_string_res >>= fun n ->
     if n > 0xffff || n <= -0xffff
     then Error (Format.sprintf "d16: %d is out of range" n)
-    else Ok [(char_of_int ((n lsr 8) land 0xff)); (char_of_int (n land 0xff))]
+    else Ok (
+      CCString.of_list [
+        (char_of_int ((n lsr 8) land 0xff));
+        (char_of_int (n land 0xff))
+      ]
+    )
 
   let chars_of_int32 n =
     let (lsr) = Int32.shift_right_logical in
     let (land) = Int32.logand in
     let to_char i = char_of_int (Int32.to_int i) in
-    [
+    CCString.of_list [
       to_char ((n lsr 24) land 0xffl);
       to_char ((n lsr 16) land 0xffl);
       to_char ((n lsr 8) land 0xffl);
@@ -200,31 +205,31 @@ module Eval = struct
     get_value v >>= int_of_hex_res >>= fun n ->
     if n > 0xff || n < 0
     then Error (Format.sprintf "h8: %x is out of range" n)
-    else Ok [char_of_int n]
+    else Ok (CCString.of_char @@ char_of_int n)
 
-  let rec result_map f xs =
+  let rec result_map (f: 'a -> ('b, string) result) (xs: 'a list): ('b list, string) result =
     match xs with
     | [] -> Ok []
-    | x :: xs -> (
-      match f x, result_map f xs with
-      | Error s, _ -> Error s
-      | Ok _, Error s -> Error s
-      | Ok cs, Ok res -> Ok (List.append cs res)
-    )
+    | x :: xs ->
+      f x >>= fun head ->
+      result_map f xs >>= fun tail ->
+      Ok (head :: tail)
 
   let eval_seg seg =
+    let result_map_to_string f xs =
+      result_map f xs >>| CCString.concat ""
+    in
+
     match seg with
     | Ast.Segment.{ identifier; parameters=[]; _ } -> Error (Format.sprintf "Unknown identifier \"%s\"" identifier)
     | Ast.Segment.{ identifier; parameters; _ } ->
         match identifier with
-        | "d8" -> result_map d8 parameters
-        | "h8" -> result_map h8 parameters
-        | "d16" -> result_map d16 parameters
-        | "d32" -> result_map d32 parameters
+        | "d8" -> result_map_to_string d8 parameters
+        | "h8" -> result_map_to_string h8 parameters
+        | "d16" -> result_map_to_string d16 parameters
+        | "d32" -> result_map_to_string d32 parameters
         | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
 
-  let eval prog =
-    match prog with
-    | [] -> Ok []
-    | seg :: _ -> eval_seg seg
+  let eval prog: (string, string) result =
+    result_map eval_seg prog >>| CCString.concat ""
 end

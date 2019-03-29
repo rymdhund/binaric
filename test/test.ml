@@ -8,16 +8,9 @@ let segment_eq (a:Ast.Segment.t) (b:Ast.Segment.t) =
   a.parameters = b.parameters &&
   a.multiplier = b.multiplier
 
-let segment =
-  let module M =
-    struct
-      type t = Ast.Segment.t
-      let pp = fun ppf seg ->
-        Format.fprintf ppf "%s" (Ast.Segment.show seg)
-      let equal = segment_eq
-    end
-  in
-  (module M: Alcotest.TESTABLE with type t = M.t)
+let segment = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Segment.show seg)) segment_eq
+let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
+
 
 let check_parse_segment exp s () =
   match Angstrom.parse_string Parsers.segment s with
@@ -142,22 +135,54 @@ let check_eval exp s () =
   | Ok prog ->
     match Eval.eval prog with
     | Error msg -> Alcotest.fail msg
-    | Ok res -> Alcotest.(check (list char)) "same program" exp res
+    | Ok res -> Alcotest.check binary_string "same evaluation" exp res
 
-let eval_set = List.map
+let eval_oneliners_set = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
-    ([ '\x00' ], "d8 = 0 ");
-    ([ '\xff' ], "d8 = 255 ");
-    ([ '\xff' ], "d8 = -1 ");
-    ([ '\x00'; '\xff' ], "d8 [ 0 255 ] ");
-    ([ '\x00'; '\xff' ], "h8 [ 0 ff ] ");
-    ([ '\x00'; '\x01' ], "d16 [ 1 ] ");
-    ([ '\x00'; '\x01' ], "d16 [ 1 ] ");
-    ([ '\x00'; '\x01'; '\x00'; '\xff' ], "d16 [ 1 255 ] ");
-    ([ '\x00'; '\x00'; '\x00'; '\x01' ], "d32 = 1 ");
-    ([ '\xff'; '\xff'; '\xff'; '\xff'; ], "d32 = 4294967295 ");
-    ([ '\xff'; '\xff'; '\xff'; '\xff'; ], "d32 = -1 ");
+    ("\x00", "d8 = 0 ");
+    ("\xff", "d8 = 255 ");
+    ("\xff", "d8 = -1 ");
+    ("\x00\xff", "d8 [ 0 255 ] ");
+    ("\x00\xff", "h8 [ 0 ff ] ");
+    ("\x00\x01", "d16 [ 1 ] ");
+    ("\x00\x01", "d16 [ 1 ] ");
+    ("\x00\x01\x00\xff", "d16 [ 1 255 ] ");
+    ("\x00\x00\x00\x01", "d32 = 1 ");
+    ("\xff\xff\xff\xff", "d32 = 4294967295 ");
+    ("\xff\xff\xff\xff", "d32 = -1 ");
+    ("\x00", "{ d8 = 0 }");
+  ]
+
+
+let eval_multiliners_set = List.map
+  (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
+  [
+    (
+      "\x00\xff",
+      "d8 = 0\n" ^
+      "d8 = 255"
+    );
+    (
+      "\x00\xff\xf0",
+      "h8 = 00 #comment\n" ^
+      "h8 = ff #comment2\n" ^
+      "h8 = f0 #comment3"
+    );
+    (
+      "\015\002\254\x00\xff\x00\xff",
+      "size:   d8 = 15\n" ^
+      "width:  d8 = 2\n" ^
+      "height: d8 = -2\n" ^
+      "data:   h8 [ 00 ff 00 ff ]"
+    );
+    (
+      "\015\002\254\x00\xff\x00\xff",
+      "size:   d8 = 15\n" ^
+      "width:  d8 = 2\n" ^
+      "height: d8 = -2\n" ^
+      "data:   h8 [ 00 ff 00 ff ]"
+    );
   ]
 
 let check_eval_fail expected s () =
@@ -185,6 +210,7 @@ let () =
   Alcotest.run "Binaric Tests" [
     "segment_set", segment_set;
     "program_set", program_set;
-    "eval_set", eval_set;
+    "eval_oneliners_set", eval_oneliners_set;
+    "eval_multiliners_set", eval_multiliners_set;
     "eval_fail_set", eval_fail_set;
   ]
