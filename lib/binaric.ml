@@ -34,6 +34,7 @@ module Ast = struct
 
   module Expression = struct
     type t = {
+       is_const: bool;
        label: string option;
        expr: unlabeled
     } [@@ deriving show, eq]
@@ -61,11 +62,18 @@ module Parsers = struct
   let comment =
     char '#' <* skip_while (function | '\x0a' | '\x0d' -> false | _ -> true) <* advance 1 >>| ignore
 
-  (* zero or more whitespace *)
-  let ws0 = skip_while (function
+  let is_ws = function
     | '\x20' | '\x09' -> true
     | _ -> false
-  )
+
+  (* zero or more whitespace *)
+  let ws0 = skip_while is_ws
+
+  (* one or more whitespace *)
+  let ws1 = take_while1 (function
+    | '\x20' | '\x09' -> true
+    | _ -> false
+  ) >>| ignore
 
   (* exactly one newline *)
   let nl = skip (function
@@ -101,6 +109,9 @@ module Parsers = struct
   let optional_label =
     let some x = Some x in
     option None (label >>| some)
+
+  let is_const =
+    (string "const" *> peek_char_fail >>| is_ws) <|> return false
 
   let value =
     lift2 (fun sign v -> `Numeric (sign ^ v))
@@ -147,8 +158,9 @@ module Parsers = struct
     | None :: tail -> somefilter tail
 
   let comp_expr =
-    lift2
-      (fun label comp -> Ast.Expression.{ label; expr = Computation comp})
+    lift3
+      (fun is_const label comp -> Ast.Expression.{ is_const; label; expr = Computation comp})
+      (is_const <* ws0)
       (optional_label <* ws0)
       computation
 
@@ -162,8 +174,9 @@ module Parsers = struct
         start_block *> wsc0 *> (sep_by eol expr) <* wsc0 <* end_block
       in
       let block =
-        lift2
-        (fun label exprs -> Ast.Expression.{ label; expr = Block exprs })
+        lift3
+        (fun is_const label exprs -> Ast.Expression.{ is_const; label; expr = Block exprs })
+        (is_const <* ws0)
         (optional_label  <* ws0)
         unlabeled_block
       in
@@ -265,12 +278,52 @@ module Eval = struct
       result_map f xs >>= fun tail ->
       Ok (head :: tail)
 
-  let eval_computation (comp:Ast.Computation.t) =
+
+  module StringMap = CCMap.Make(CCString)
+
+  module State = struct
+    type t = {
+      consts: string StringMap.t;
+    }
+
+    let with_const (name:string) (value:string) t =
+      {
+        consts = StringMap.add name value t.consts
+      }
+
+    let empty =
+      {
+        consts = StringMap.empty
+      }
+  end
+
+  type eval_return = (State.t * string, string) result
+
+  type evaluator = State.t -> eval_return
+
+  let echo (data:string) =
+    fun (state, output) -> Ok (state, output ^ data)
+
+  let set_and_echo key (evaluator:evaluator): evaluator =
+    fun state ->
+      evaluator state >>| fun (state, output) ->
+      (State.with_const key output state, output)
+
+  let set_and_swallow key (evaluator:evaluator): evaluator =
+    fun state ->
+      evaluator state >>| fun (state, output) ->
+      (State.with_const key output state, "")
+
+
+  let eval_computation (state:State.t) (comp:Ast.Computation.t): (string, string) result =
     let result_map_to_string f xs =
       result_map f xs >>| CCString.concat ""
     in
     match comp with
-    | Ast.Computation.{ identifier; parameters=[]; _ } -> Error (Format.sprintf "Unknown identifier \"%s\"" identifier)
+    | Ast.Computation.{ identifier; parameters=[]; _ } -> (
+      match StringMap.find_opt identifier state.consts with
+      | Some value -> Ok value
+      | None -> Error (Format.sprintf "Unknown identifier '%s'" identifier) )
     | Ast.Computation.{ identifier; parameters; _ } ->
         match identifier with
         | "d8" -> result_map_to_string d8 parameters
@@ -280,12 +333,35 @@ module Eval = struct
         | "asc" -> result_map_to_string asc parameters
         | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
 
-  let rec eval_expression (expr:Ast.Expression.t) =
-    match expr with
-    | { expr=Computation c; _} -> eval_computation c
-    | { expr=Block exprs; _} ->
-        result_map eval_expression exprs >>| CCString.concat ""
 
-  let eval prog: (string, string) result =
-    result_map eval_expression prog >>| CCString.concat ""
+
+  let rec eval_expression (expr:Ast.Expression.t) (state: State.t): eval_return=
+    match expr with
+    | { is_const=true; label=Some lbl; expr=Computation c } ->
+        eval_computation state c >>| fun value ->
+        (State.with_const lbl value state, "")
+    | { is_const=true; label=None; expr=Computation _ } ->
+        Ok (state, "") (* const with no label is no-op *)
+    | { is_const=false; label; expr=Computation c } ->
+        eval_computation state c >>| fun value ->
+        (
+          match label with
+          | Some lbl -> (State.with_const lbl value state, value)
+          | None -> (state, value)
+        )
+    | { expr=Block exprs; _} ->
+        eval_expressions exprs state
+  and eval_expressions (exprs:Ast.Expression.t list) (state:State.t): eval_return =
+      CCList.fold_left
+      (
+        fun acc expr ->
+        acc >>= fun (state, output) ->
+        eval_expression expr state >>| fun (state, expr_out) ->
+        (state, output ^ expr_out)
+      ) (Ok (state, "")) exprs
+
+        (*result_map eval_expression exprs >>| CCString.concat ""*)
+
+  let eval (prog:Ast.Expression.t list): (string, string) result =
+    eval_expressions prog State.empty >>| fun (_, output) -> output
 end

@@ -27,8 +27,12 @@ let check_parse exp s () =
 let mk_computation multiplier identifier parameters =
   Ast.Computation.{ multiplier; identifier; parameters }
 
-let mk_expression ?label ?multiplier identifier parameters =
-  Ast.Expression.{ label; expr = Computation (mk_computation multiplier identifier parameters) }
+let mk_expression ?(is_const=false) ?label ?multiplier identifier parameters =
+  Ast.Expression.{
+    is_const;
+    label;
+    expr = Computation (mk_computation multiplier identifier parameters)
+  }
 
 let expression_set = List.map
   (fun (exp, s) -> ("parse expression", `Quick, check_parse_expr exp s))
@@ -47,7 +51,7 @@ let expression_set = List.map
     );
     (
       mk_expression ~label:"a" "b" [`Numeric "c"],
-      "a: b = c"
+      "a: b c"
     );
     (
       mk_expression "b" [],
@@ -67,7 +71,7 @@ let expression_set = List.map
     );
     (
       mk_expression ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
-      "a: b = c * 2"
+      "a: b c * 2"
     );
   ]
 
@@ -122,13 +126,13 @@ let program_set = List.map
       [
         mk_expression "a" [ `String "abc" ];
       ],
-      "a = \"abc\" "
+      "a \"abc\" "
     );
     (
       [
         mk_expression "a" [ `String "\"" ];
       ],
-      "a = \"\\\"\" "
+      "a  \"\\\"\" "
     );
   ]
 
@@ -260,6 +264,13 @@ let eval_multiliners_set = List.map
 let eval_const_set = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
+    (
+      "\xff\xff", {|
+      const foo: h8  ff
+      foo
+      foo
+      |}
+    );
   ]
 
 let check_eval_fail expected s () =
