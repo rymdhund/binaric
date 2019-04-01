@@ -282,46 +282,69 @@ module Eval = struct
   module StringMap = CCMap.Make(CCString)
 
   module State = struct
-    type t = {
-      consts: string StringMap.t;
-    }
+    type t = string StringMap.t
 
     let with_const (name:string) (value:string) t =
-      {
-        consts = StringMap.add name value t.consts
-      }
+      StringMap.add name value t
 
-    let empty =
-      {
-        consts = StringMap.empty
-      }
+    let empty = StringMap.empty
+
+    let nest_const_names namespace t =
+      StringMap.fold (fun key value env -> StringMap.add (namespace ^ "." ^ key) value env) empty t
+
+    let merge t1 t2 =
+      StringMap.union (fun _key _v1 v2 -> Some v2) t1 t2
+
+    (* TODO: remove *)
+    let print t =
+      let sprinter = fun fmt -> Format.fprintf fmt "%S" in
+      let pp = StringMap.pp sprinter sprinter in
+      Format.fprintf Format.err_formatter "{\n";
+      pp Format.err_formatter t;
+      Format.fprintf Format.err_formatter "\n}\n";
   end
 
+  (* Each evaluator returns the new variables set by it and it's output *)
   type eval_return = (State.t * string, string) result
 
   type evaluator = State.t -> eval_return
 
   let echo (data:string): evaluator =
-    fun state -> Ok (state, data)
+    fun _state -> Ok (State.empty, data)
 
   let fail (msg:string): evaluator =
     fun _state -> Error msg
 
   let fetch_const (key:string): evaluator =
     fun state ->
-      match StringMap.find_opt key state.consts with
-      | Some value -> Ok (state, value)
+      match StringMap.find_opt key state with
+      | Some value ->
+          Format.eprintf "fetch_const %s = %S\n" key value;
+          Ok (State.empty, value)
       | None -> Error (Format.sprintf "Unknown identifier '%s'" key)
+
+  let only_echo (evaluator:evaluator): evaluator =
+    fun state ->
+      evaluator state >>| fun (_state, output) -> (State.empty, output)
 
   let set_and_echo key (evaluator:evaluator): evaluator =
     fun state ->
-      evaluator state >>| fun (state, output) ->
-      (State.with_const key output state, output)
+      evaluator state >>| fun (state1, output) ->
+      Format.eprintf "set_and_echo %s\n" key;
+      State.print state1;
+      State.print state;
+      Format.eprintf "---\n";
+      let s = State.nest_const_names key state1 |> State.with_const key output in
+      (s, output)
 
   let set_and_swallow key (evaluator:evaluator): evaluator =
     fun state ->
-      evaluator state >>| fun (state, output) ->
-      (State.with_const key output state, "")
+      evaluator state >>| fun (state1, output) ->
+      Format.eprintf "set_and_swallow %s = %S\n" key output;
+      State.print state1;
+      State.print state;
+      Format.eprintf "---\n";
+      (State.with_const key output (State.empty), "")
 
   let chain (es:evaluator list): evaluator =
     fun state ->
@@ -329,8 +352,8 @@ module Eval = struct
       (
         fun acc evaluator ->
         acc >>= fun (state, sum_output) ->
-        evaluator state >>| fun (state, output) ->
-        (state, sum_output ^ output)
+        evaluator state >>| fun (new_state, output) ->
+        (State.merge state new_state, sum_output ^ output)
       ) (Ok (state, "")) es
 
   let eval_computation (comp:Ast.Computation.t): evaluator =
@@ -358,7 +381,7 @@ module Eval = struct
     in
     match expr with
     | { is_const=false; label=None; _ } ->
-        evaluator
+        only_echo evaluator
     | { is_const=false; label=Some key; _ } ->
         set_and_echo key evaluator
     | { is_const=true; label=Some key; _ } ->
