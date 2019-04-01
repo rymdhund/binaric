@@ -27,7 +27,7 @@ let check_parse exp s () =
 let mk_computation multiplier identifier parameters =
   Ast.Computation.{ multiplier; identifier; parameters }
 
-let mk_expression ?(is_const=false) ?label ?multiplier identifier parameters =
+let mk_expression ?(is_const=false) ?label ?(multiplier=1) identifier parameters =
   Ast.Expression.{
     is_const;
     label;
@@ -261,6 +261,33 @@ let eval_multiliners_set = List.map
     );
   ]
 
+let eval_repetition_set = List.map
+  (fun (exp, s) -> ("eval repetition", `Quick, check_eval exp s))
+  [
+    (
+      "\xff\xff\xff", {|
+      h8 ff * 3
+      |}
+    );
+    (
+      "\xff\xff\xff", {|
+      a: h8 ff * 3
+      |}
+    );
+    (
+      "\xff\xff", {|
+      const a: h8 ff * 2
+      a
+      |}
+    );
+    (
+      "\xff\xff", {|
+      const a: h8 ff
+      a * 2
+      |}
+    );
+  ]
+
 let eval_const_set = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
@@ -308,6 +335,24 @@ let eval_const_set = List.map
       x
       |}
     );
+    (
+      "\xff", {|
+      const x: {
+        const y: h8 ff
+      }
+      x.y
+      |}
+    );
+    (
+      "\xff\x00", {|
+      const y: h8 00
+      const x: {
+        const y: h8 ff
+      }
+      x.y
+      y
+      |}
+    );
   ]
 
 let check_eval_fail expected s () =
@@ -337,6 +382,7 @@ let () =
     "program_set", program_set;
     "eval_oneliners_set", eval_oneliners_set;
     "eval_multiliners_set", eval_multiliners_set;
+    "eval_repetition_set", eval_repetition_set;
     "eval_const_set", eval_const_set;
     "eval_fail_set", eval_fail_set;
   ]

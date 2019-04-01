@@ -9,7 +9,7 @@ let is_alpha = function
   | _ -> false
 
 let is_name_char = function
-  | '_' | '-' -> true
+  | '_' | '-' | '.' -> true
   | c -> (is_alpha c) || (is_digit c)
 
 let is_param_char = function
@@ -28,7 +28,7 @@ module Ast = struct
     type t = {
       identifier: string;
       parameters: value list;
-      multiplier: int option;
+      multiplier: int;
     } [@@ deriving show, eq]
   end
 
@@ -134,8 +134,7 @@ module Parsers = struct
     (char '*') *> ws0 *> (take_while1 is_digit) >>| int_of_string
 
   let optional_multiplier =
-    let some x = Some x in
-    option None (multiplier >>| some)
+    option 1 multiplier
 
   let end_of_input =
     peek_char >>= function
@@ -290,7 +289,10 @@ module Eval = struct
     let empty = StringMap.empty
 
     let nest_names namespace t =
-      StringMap.fold (fun key value env -> StringMap.add (namespace ^ "." ^ key) value env) empty t
+      Format.printf "nest len %d\n" (StringMap.cardinal t);
+      StringMap.fold (fun key value env ->
+        Format.printf "Nesting name %s %S\n" (namespace ^ "." ^ key) value;
+        StringMap.add (namespace ^ "." ^ key) value env) t empty
 
     let merge t1 t2 =
       StringMap.union (fun _key _v1 v2 -> Some v2) t1 t2
@@ -315,12 +317,11 @@ module Eval = struct
   let fail (msg:string): evaluator =
     fun _env -> Error msg
 
-  let fetch_const (key:string): evaluator =
+  let output_const ?(multiplier=1) (key:string): evaluator =
     fun env ->
       match StringMap.find_opt key env with
       | Some value ->
-          Format.eprintf "fetch_const %s = %S\n" key value;
-          Ok (Env.empty, value)
+          Ok (Env.empty, CCString.repeat value multiplier)
       | None -> Error (Format.sprintf "Unknown identifier '%s'" key)
 
   let only_echo (evaluator:evaluator): evaluator =
@@ -335,8 +336,9 @@ module Eval = struct
 
   let set_and_swallow key (evaluator:evaluator): evaluator =
     fun env ->
-      evaluator env >>| fun (_env, output) ->
-      (Env.with_const key output (Env.empty), "")
+      evaluator env >>| fun (env1, output) ->
+      let e = Env.nest_names key env1 |> Env.with_const key output in
+      (e, "")
 
   let chain (es:evaluator list): evaluator =
     fun env ->
@@ -351,12 +353,12 @@ module Eval = struct
   let eval_computation (comp:Ast.Computation.t): evaluator =
     let mk_evaluator f xs =
       match result_map f xs >>| CCString.concat "" with
-      | Ok output -> echo output
+      | Ok output -> echo (CCString.repeat output comp.multiplier)
       | Error e -> fail e
     in
     match comp with
     | Ast.Computation.{ identifier; parameters=[]; _ } ->
-        fetch_const identifier
+        output_const ~multiplier:comp.multiplier identifier
     | Ast.Computation.{ identifier; parameters; _ } ->
         match identifier with
         | "d8"  -> mk_evaluator d8 parameters
