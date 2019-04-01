@@ -271,6 +271,33 @@ let eval_const_set = List.map
       foo
       |}
     );
+    (
+      "\xff\xff", {|
+      bar: h8  ff
+           bar
+      |}
+    );
+    (
+      "\xff\xff", {|
+      const bar: {
+        h8  ff
+        h8  ff
+      }
+      bar
+      |}
+    );
+    (
+      "\xff\x00\xff", {|
+      const x: {
+        h8  ff
+        foo: {
+          h8 00
+        }
+        h8  ff
+      }
+      x
+      |}
+    );
   ]
 
 let check_eval_fail expected s () =

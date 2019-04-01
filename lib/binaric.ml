@@ -301,8 +301,17 @@ module Eval = struct
 
   type evaluator = State.t -> eval_return
 
-  let echo (data:string) =
-    fun (state, output) -> Ok (state, output ^ data)
+  let echo (data:string): evaluator =
+    fun state -> Ok (state, data)
+
+  let fail (msg:string): evaluator =
+    fun _state -> Error msg
+
+  let fetch_const (key:string): evaluator =
+    fun state ->
+      match StringMap.find_opt key state.consts with
+      | Some value -> Ok (state, value)
+      | None -> Error (Format.sprintf "Unknown identifier '%s'" key)
 
   let set_and_echo key (evaluator:evaluator): evaluator =
     fun state ->
@@ -314,53 +323,50 @@ module Eval = struct
       evaluator state >>| fun (state, output) ->
       (State.with_const key output state, "")
 
-
-  let eval_computation (state:State.t) (comp:Ast.Computation.t): (string, string) result =
-    let result_map_to_string f xs =
-      result_map f xs >>| CCString.concat ""
-    in
-    match comp with
-    | Ast.Computation.{ identifier; parameters=[]; _ } -> (
-      match StringMap.find_opt identifier state.consts with
-      | Some value -> Ok value
-      | None -> Error (Format.sprintf "Unknown identifier '%s'" identifier) )
-    | Ast.Computation.{ identifier; parameters; _ } ->
-        match identifier with
-        | "d8" -> result_map_to_string d8 parameters
-        | "h8" -> result_map_to_string h8 parameters
-        | "d16" -> result_map_to_string d16 parameters
-        | "d32" -> result_map_to_string d32 parameters
-        | "asc" -> result_map_to_string asc parameters
-        | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
-
-
-
-  let rec eval_expression (expr:Ast.Expression.t) (state: State.t): eval_return=
-    match expr with
-    | { is_const=true; label=Some lbl; expr=Computation c } ->
-        eval_computation state c >>| fun value ->
-        (State.with_const lbl value state, "")
-    | { is_const=true; label=None; expr=Computation _ } ->
-        Ok (state, "") (* const with no label is no-op *)
-    | { is_const=false; label; expr=Computation c } ->
-        eval_computation state c >>| fun value ->
-        (
-          match label with
-          | Some lbl -> (State.with_const lbl value state, value)
-          | None -> (state, value)
-        )
-    | { expr=Block exprs; _} ->
-        eval_expressions exprs state
-  and eval_expressions (exprs:Ast.Expression.t list) (state:State.t): eval_return =
+  let chain (es:evaluator list): evaluator =
+    fun state ->
       CCList.fold_left
       (
-        fun acc expr ->
-        acc >>= fun (state, output) ->
-        eval_expression expr state >>| fun (state, expr_out) ->
-        (state, output ^ expr_out)
-      ) (Ok (state, "")) exprs
+        fun acc evaluator ->
+        acc >>= fun (state, sum_output) ->
+        evaluator state >>| fun (state, output) ->
+        (state, sum_output ^ output)
+      ) (Ok (state, "")) es
 
-        (*result_map eval_expression exprs >>| CCString.concat ""*)
+  let eval_computation (comp:Ast.Computation.t): evaluator =
+    let mk_evaluator f xs =
+      match result_map f xs >>| CCString.concat "" with
+      | Ok output -> echo output
+      | Error e -> fail e
+    in
+    match comp with
+    | Ast.Computation.{ identifier; parameters=[]; _ } ->
+        fetch_const identifier
+    | Ast.Computation.{ identifier; parameters; _ } ->
+        match identifier with
+        | "d8"  -> mk_evaluator d8 parameters
+        | "h8"  -> mk_evaluator h8 parameters
+        | "d16" -> mk_evaluator d16 parameters
+        | "d32" -> mk_evaluator d32 parameters
+        | "asc" -> mk_evaluator asc parameters
+        | id -> fail (Format.sprintf "Unknown identifier '%s'" id)
+
+  let rec eval_expression (expr:Ast.Expression.t): evaluator =
+    let evaluator = match expr with
+    | { expr=Computation c; _} -> eval_computation c
+    | { expr=Block exprs; _} -> eval_expressions exprs
+    in
+    match expr with
+    | { is_const=false; label=None; _ } ->
+        evaluator
+    | { is_const=false; label=Some key; _ } ->
+        set_and_echo key evaluator
+    | { is_const=true; label=Some key; _ } ->
+        set_and_swallow key evaluator
+    | { is_const=true; label=None; _ } ->
+        echo "" (* const with no label is no-op *)
+  and eval_expressions (exprs:Ast.Expression.t list): evaluator =
+    chain (CCList.map eval_expression exprs)
 
   let eval (prog:Ast.Expression.t list): (string, string) result =
     eval_expressions prog State.empty >>| fun (_, output) -> output
