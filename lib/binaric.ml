@@ -22,27 +22,23 @@ let string_of_chars chars =
   Buffer.contents buf
 
 module Ast = struct
-  type value = [ `Numeric of string | `String of string ] [@@ deriving show, eq]
+  type literal = [ `Numeric of string | `String of string ] [@@ deriving show, eq]
 
-  module Computation = struct
-    type t = {
-      identifier: string;
-      parameters: value list;
-      multiplier: int;
-    } [@@ deriving show, eq]
-  end
+  type computation = {
+    identifier: string;
+    parameters: literal list;
+    multiplier: int;
+  } [@@ deriving show, eq]
 
-  module Expression = struct
-    type t = {
-       is_const: bool;
-       label: string option;
-       expr: unlabeled
-    } [@@ deriving show, eq]
-    and unlabeled =
-      | Computation of Computation.t
-      | Block of t list
-    [@@ deriving show, eq]
-  end
+  type expression =
+    | Assignment of string * rhs
+    | Section of string option * rhs
+  [@@ deriving show, eq]
+
+  and rhs =
+    | Computation of computation
+    | Block of expression list
+  [@@ deriving show, eq]
 end
 
 module Parsers = struct
@@ -110,9 +106,6 @@ module Parsers = struct
     let some x = Some x in
     option None (label >>| some)
 
-  let is_const =
-    (string "const" *> peek_char_fail >>| is_ws) <|> return false
-
   let value =
     lift2 (fun sign v -> `Numeric (sign ^ v))
       (option "" (char '-' >>| (fun _ -> "-")))
@@ -136,32 +129,23 @@ module Parsers = struct
   let optional_multiplier =
     option 1 multiplier
 
+  let const_name =
+    string "const" *> ws0 *> name <* ws0 <* char '='
+
   let end_of_input =
     peek_char >>= function
     | Some c -> fail (Format.sprintf "Unexpected character: %C" c)
     | None -> return ()
 
-  let computation =
+  let rhs_computation =
     lift3
     (
       fun identifier parameters multiplier ->
-      Ast.Computation.{identifier; parameters; multiplier}
+      Ast.Computation {identifier; parameters; multiplier}
     )
     (name <* ws0)
     (parameters <* ws0)
     optional_multiplier
-
-  let rec somefilter xs = match xs with
-    | [] -> []
-    | Some x :: tail -> x :: somefilter tail
-    | None :: tail -> somefilter tail
-
-  let comp_expr =
-    lift3
-      (fun is_const label comp -> Ast.Expression.{ is_const; label; expr = Computation comp})
-      (is_const <* ws0)
-      (optional_label <* ws0)
-      computation
 
   let start_block = (char '{')
 
@@ -169,17 +153,26 @@ module Parsers = struct
 
   let expression =
     fix (fun expr ->
-      let unlabeled_block =
-        start_block *> wsc0 *> (sep_by eol expr) <* wsc0 <* end_block
+      let rhs_block =
+        (start_block *> wsc0 *> (sep_by eol expr) <* wsc0 <* end_block)
+        >>| fun exprs -> Ast.Block exprs
       in
-      let block =
-        lift3
-        (fun is_const label exprs -> Ast.Expression.{ is_const; label; expr = Block exprs })
-        (is_const <* ws0)
+      let rhs =
+        choice [ rhs_computation; rhs_block ]
+      in
+      let section =
+        lift2
+        (fun label rhs -> Ast.Section (label, rhs))
         (optional_label  <* ws0)
-        unlabeled_block
+        rhs
       in
-      choice [ comp_expr; block ]
+      let assignment =
+        lift2
+        (fun name rhs -> Ast.Assignment (name, rhs))
+        (const_name <* ws0)
+        rhs
+      in
+      choice [ assignment; section ]
     )
 
   let program =
@@ -350,16 +343,16 @@ module Eval = struct
         (Env.merge env new_env, sum_output ^ output)
       ) (Ok (env, "")) es
 
-  let eval_computation (comp:Ast.Computation.t): evaluator =
+  let eval_computation (comp:Ast.computation): evaluator =
     let mk_evaluator f xs =
       match result_map f xs >>| CCString.concat "" with
       | Ok output -> echo (CCString.repeat output comp.multiplier)
       | Error e -> fail e
     in
     match comp with
-    | Ast.Computation.{ identifier; parameters=[]; _ } ->
+    | Ast.{ identifier; parameters=[]; _ } ->
         output_const ~multiplier:comp.multiplier identifier
-    | Ast.Computation.{ identifier; parameters; _ } ->
+    | Ast.{ identifier; parameters; _ } ->
         match identifier with
         | "d8"  -> mk_evaluator d8 parameters
         | "h8"  -> mk_evaluator h8 parameters
@@ -368,23 +361,19 @@ module Eval = struct
         | "asc" -> mk_evaluator asc parameters
         | id -> fail (Format.sprintf "Unknown identifier '%s'" id)
 
-  let rec eval_expression (expr:Ast.Expression.t): evaluator =
-    let evaluator = match expr with
-    | { expr=Computation c; _} -> eval_computation c
-    | { expr=Block exprs; _} -> eval_expressions exprs
+  let rec eval_expression (expr:Ast.expression): evaluator =
+    let rhs_evaluator = function
+    | Ast.Computation c -> eval_computation c
+    | Block exprs -> eval_expressions exprs
     in
     match expr with
-    | { is_const=false; label=None; _ } ->
-        only_echo evaluator
-    | { is_const=false; label=Some key; _ } ->
-        set_and_echo key evaluator
-    | { is_const=true; label=Some key; _ } ->
-        set_and_swallow key evaluator
-    | { is_const=true; label=None; _ } ->
-        echo "" (* const with no label is no-op *)
-  and eval_expressions (exprs:Ast.Expression.t list): evaluator =
+    | Section (_label, rhs) ->
+        only_echo (rhs_evaluator rhs)
+    | Assignment (key, rhs) ->
+        set_and_swallow key (rhs_evaluator rhs)
+  and eval_expressions (exprs:Ast.expression list): evaluator =
     chain (CCList.map eval_expression exprs)
 
-  let eval (prog:Ast.Expression.t list): (string, string) result =
+  let eval (prog:Ast.expression list): (string, string) result =
     eval_expressions prog Env.empty >>| fun (_, output) -> output
 end

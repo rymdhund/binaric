@@ -2,37 +2,30 @@ module Ast = Binaric.Ast
 module Parsers = Binaric.Parsers
 module Eval = Binaric.Eval
 
-let segment_eq (a:Ast.Computation.t) (b:Ast.Computation.t) =
-  a.identifier = b.identifier &&
-  a.parameters = b.parameters &&
-  a.multiplier = b.multiplier
+let expression =
+  Alcotest.testable
+    (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_expression seg))
+    (Ast.equal_expression)
 
-let segment = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Computation.show seg)) segment_eq
-let element = Alcotest.testable (fun ppf seg -> Format.fprintf ppf "%s" (Ast.Expression.show seg)) (Ast.Expression.equal)
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
-
 
 let check_parse_expr expected s () =
   match Angstrom.parse_string Parsers.expression s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.check element "same segment" expected seg
+    Alcotest.check expression "same expression" expected seg
 
 let check_parse exp s () =
   match Angstrom.parse_string Parsers.program s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.(check (list element)) "same program" exp seg
+    Alcotest.(check (list expression)) "same program" exp seg
 
-let mk_computation multiplier identifier parameters =
-  Ast.Computation.{ multiplier; identifier; parameters }
-
-let mk_expression ?(is_const=false) ?label ?(multiplier=1) identifier parameters =
-  Ast.Expression.{
-    is_const;
-    label;
-    expr = Computation (mk_computation multiplier identifier parameters)
-  }
+let mk_expression ?label ?(multiplier=1) identifier parameters =
+  let mk_computation multiplier identifier parameters =
+    Ast.{ multiplier; identifier; parameters }
+  in
+  Ast.Section (label, Computation (mk_computation multiplier identifier parameters))
 
 let expression_set = List.map
   (fun (exp, s) -> ("parse expression", `Quick, check_parse_expr exp s))
@@ -276,13 +269,13 @@ let eval_repetition_set = List.map
     );
     (
       "\xff\xff", {|
-      const a: h8 ff * 2
+      const a = h8 ff * 2
       a
       |}
     );
     (
       "\xff\xff", {|
-      const a: h8 ff
+      const a = h8 ff
       a * 2
       |}
     );
@@ -291,22 +284,17 @@ let eval_repetition_set = List.map
 let eval_const_set = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
+    ("", "const abc=h8 ff");
     (
       "\xff\xff", {|
-      const foo: h8  ff
+      const foo = h8  ff
       foo
       foo
       |}
     );
     (
       "\xff\xff", {|
-      bar: h8  ff
-           bar
-      |}
-    );
-    (
-      "\xff\xff", {|
-      const bar: {
+      const bar = {
         h8  ff
         h8  ff
       }
@@ -315,7 +303,7 @@ let eval_const_set = List.map
     );
     (
       "\xff\x00\xff", {|
-      const x: {
+      const x = {
         h8  ff
         foo: {
           h8 00
@@ -327,9 +315,9 @@ let eval_const_set = List.map
     );
     (
       "\xff\x00", {|
-      const x: h8 00
+      const x = h8 00
       {
-        const x: h8 ff
+        const x = h8 ff
         x
       }
       x
@@ -337,17 +325,17 @@ let eval_const_set = List.map
     );
     (
       "\xff", {|
-      const x: {
-        const y: h8 ff
+      const x = {
+        const y = h8 ff
       }
       x.y
       |}
     );
     (
       "\xff\x00", {|
-      const y: h8 00
-      const x: {
-        const y: h8 ff
+      const y = h8 00
+      const x = {
+        const y = h8 ff
       }
       x.y
       y
@@ -374,6 +362,12 @@ let eval_fail_set = List.map
     ("Invalid hex number: \"-1\"", "h8  -1 ");
     ("Invalid 32 bit decimal number: \"4294967296\"", "d32  4294967296");
     ("Invalid 32 bit decimal number: \"-4294967295\"", "d32  -4294967295");
+    (
+      "Unknown identifier 'bar'", {|
+      bar: h8  ff
+           bar
+      |}
+    );
   ]
 
 let () =
