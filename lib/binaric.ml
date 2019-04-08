@@ -318,7 +318,44 @@ module Eval = struct
       | Block of statement list
       | Repeat of expression * int
 
-    let override (orig:expression) (_over:expression): expression =
+    let override (orig:expression) (over:expression): expression =
+      let rec map_of_expr_out ns map (expr_out:expression) =
+        match expr_out with
+        | Plain _
+        | Repeat _ -> map
+        | Block stmt_outs ->
+            List.fold_left
+              (fun map1 stmt_out -> map_of_stmt_out ns map1 stmt_out)
+              map
+              stmt_outs
+      and map_of_stmt_out ns map (stmt_out:statement) =
+          match stmt_out with
+          | Label (lbl, expr_out) ->
+              Format.printf "add %s \n" (ns ^ lbl);
+              let expr_map = map_of_expr_out (ns ^ lbl ^ ".") map expr_out in
+              StringMap.merge map expr_map |> StringMap.add (ns ^ lbl) expr_out
+          | Some lbl, (Output.Block (outs, _) as b) ->
+              List.fold_left
+                (fun map1 output -> of_output1 (ns ^ lbl ^ ".") map1 output)
+                map
+                outs
+              |>
+              add (ns ^ lbl) b
+          | None, Plain _ -> map
+          | None, Block (outs, _) ->
+              (* Keep the same namespace if no label *)
+              List.fold_left
+                (fun map1 output -> of_output1 ns map1 output)
+                map
+                outs
+        in
+        match output with
+        | Plain _ -> empty
+        | Block (outs, _n) ->
+            CCList.fold_left
+            (fun map output -> of_output1 "" map output)
+            empty
+            outs
       orig (* TODO *)
 
     let plain (s:string): expression =
@@ -397,34 +434,6 @@ module Eval = struct
         env
         wrap
 
-    (*let of_output (output:Output.value): t =*)
-      (*let rec of_output1 ns map (output:Output.t): t =*)
-        (*match output.label, output.value with*)
-        (*| Some lbl, (Output.Plain _ as p) ->*)
-            (*Format.printf "add %s \n" (ns ^ lbl);*)
-            (*add (ns ^ lbl) p map*)
-        (*| Some lbl, (Output.Block (outs, _) as b) ->*)
-            (*List.fold_left*)
-              (*(fun map1 output -> of_output1 (ns ^ lbl ^ ".") map1 output)*)
-              (*map*)
-              (*outs*)
-            (*|>*)
-            (*add (ns ^ lbl) b*)
-        (*| None, Plain _ -> map*)
-        (*| None, Block (outs, _) ->*)
-            (*(* Keep the same namespace if no label *)*)
-            (*List.fold_left*)
-              (*(fun map1 output -> of_output1 ns map1 output)*)
-              (*map*)
-              (*outs*)
-      (*in*)
-      (*match output with*)
-      (*| Plain _ -> empty*)
-      (*| Block (outs, _n) ->*)
-          (*CCList.fold_left*)
-          (*(fun map output -> of_output1 "" map output)*)
-          (*empty*)
-          (*outs*)
   end
 
   (* Each evaluator returns the new variables set by it and it's output *)
