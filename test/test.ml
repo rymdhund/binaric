@@ -33,7 +33,9 @@ let mk_statement ?label identifier parameters =
   let mk_computation identifier parameters =
     Ast.{ identifier; parameters }
   in
-  Ast.Section (label, Computation (mk_computation identifier parameters))
+  match label with
+  | Some lbl -> Ast.Label (lbl, Computation (mk_computation identifier parameters))
+  | None -> Ast.Anonymous (Computation (mk_computation identifier parameters))
 
 let statement_tests = List.map
   (fun (exp, s) -> ("parse statement", `Quick, check_parse_expr exp s))

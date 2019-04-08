@@ -30,8 +30,9 @@ module Ast = struct
   } [@@ deriving show, eq]
 
   type statement =
+    | Anonymous of expression
+    | Label of string * expression
     | Assignment of string * expression
-    | Section of string option * expression
   [@@ deriving show, eq]
 
   and expression =
@@ -180,19 +181,22 @@ module Parsers = struct
         (ws0 *> multiplier)
       in
       let expression = choice [ repeat; override; term ] in
-      let section =
-        lift2
-        (fun label expr -> Ast.Section (label, expr))
-        (optional_label  <* ws0)
-        expression
-      in
-      let assignment =
+      let assignment_stmt =
         lift2
         (fun name expr -> Ast.Assignment (name, expr))
         (const_name <* ws0)
         expression
       in
-      choice [ assignment; section ]
+      let label_stmt =
+        lift2
+        (fun label expr -> Ast.Label (label, expr))
+        (label  <* ws0)
+        expression
+      in
+      let anon_stmt =
+        expression >>| fun expr -> Ast.Anonymous expr
+      in
+      choice [ assignment_stmt; label_stmt; anon_stmt ]
     )
 
   let program =
@@ -406,10 +410,10 @@ module Eval = struct
 
   let rec eval_statement (stmt:Ast.statement) (env:Env.t): stmt_return =
     match stmt with
-    | Section (None, expr) ->
+    | Anonymous expr ->
         eval_expression expr env >>| fun (_inner_env, output) ->
         (env, Output.Anonymous output)
-    | Section (Some label, expr) ->
+    | Label (label, expr) ->
         eval_expression expr env >>| fun (_inner_env, output) ->
         (env, Output.Label (label, output))
     | Assignment (key, expr) -> (
