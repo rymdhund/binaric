@@ -7,6 +7,11 @@ let statement =
     (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_statement seg))
     (Ast.equal_statement)
 
+let expression =
+  Alcotest.testable
+    (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_expression seg))
+    (Ast.equal_expression)
+
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
 
 let check_parse_expr expected s () =
@@ -15,11 +20,14 @@ let check_parse_expr expected s () =
   | Ok seg ->
     Alcotest.check statement "same statement" expected seg
 
-let check_parse exp s () =
+let check_parse (expected:Ast.expression) s () =
   match Angstrom.parse_string Parsers.program s with
   | Error msg -> Alcotest.fail msg
-  | Ok seg ->
-    Alcotest.(check (list statement)) "same program" exp seg
+  | Ok expr ->
+    Alcotest.(check) expression "same program" expected expr
+
+let mk_block stmts =
+  Ast.Block stmts
 
 let mk_statement ?label identifier parameters =
   let mk_computation identifier parameters =
@@ -64,57 +72,57 @@ let program_tests = List.map
   (fun (exp, s) -> ("parse program", `Quick, check_parse exp s))
   [
     (
-      [
+      mk_block [
         mk_statement "a" [];
         mk_statement "b" [];
       ],
       "a\nb"
     );
     (
-      [
+      mk_block [
         mk_statement "a" [];
         mk_statement "b" [];
       ],
       "a # comment\nb"
     );
     (
-      [
+      mk_block [
         mk_statement "a" [];
       ],
       "# comment\na"
     );
     (
-      [
+      mk_block [
         mk_statement "a" [];
       ],
       "\na"
     );
     (
-      [
+      mk_block [
         mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b c ]"
     );
     (
-      [
+      mk_block [
         mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ]"
     );
     (
-      [
+      mk_block [
         mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ] \n "
     );
     (
-      [
+      mk_block [
         mk_statement "a" [ `String "abc" ];
       ],
       "a \"abc\" "
     );
     (
-      [
+      mk_block [
         mk_statement "a" [ `String "\"" ];
       ],
       "a  \"\\\"\" "
@@ -347,20 +355,24 @@ let eval_override_tests = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
     ("", "{} with {}");
+
     ("\xff", {|
     h8 ff with { }
     |});
+
     ("\xff", {|
     h8 ff with {
       h8 00
     }
     |});
+
     (* with is only evaluated on the rhs *)
     ("\xff", {|
     a: h8 ff with {
       a: h8 00
     }
     |});
+
     ("\x00\xff", {|
     {
       a: h8 ff
@@ -370,6 +382,7 @@ let eval_override_tests = List.map
       b: h8 ff
     }
     |});
+
     ("\xff\xbb", {|
     const a = {
       a: h8 ff

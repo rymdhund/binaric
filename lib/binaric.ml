@@ -128,8 +128,8 @@ module Parsers = struct
   let multi_parameter =
     (char '[') *> wsc0 *> sep_by wsc0 param  <* wsc0 <* (char ']')
 
-  let parameters =
-    multi_parameter <|> single_parameter <|> (return [])
+  let parameters1 =
+    multi_parameter <|> single_parameter
 
   let multiplier =
     (char '*') *> ws0 *> (take_while1 is_digit) >>| int_of_string
@@ -155,7 +155,7 @@ module Parsers = struct
       Ast.Computation {identifier; parameters}
     )
     (name)
-    (ws0 *> parameters) (* TODO: dont eat whitespace if empty list *)
+    ((ws0 *> parameters1) <|> return [])
 
   let start_block = (char '{')
 
@@ -164,46 +164,31 @@ module Parsers = struct
   let statement =
     fix (fun stmt ->
       let block =
-        (start_block *> wsc0 *> (sep_by eol stmt) <* wsc0 <* end_block)
-        >>| fun exprs -> Ast.Block exprs
+        (start_block *> wsc0 *> sep_by eol stmt <* wsc0 <* end_block) >>| fun exprs -> Ast.Block exprs
       in
-      let comp_block =
-        choice [ computation; block ]
-      in
+      let term = choice [ computation; block ] in
       let override =
         lift2
-        (fun source override ->
-          (match source with
-          | Ast.Computation _ ->
-              Format.eprintf "Warning: you used a simple computation on the left side of your with statement, you probably want to wrap it in { }";
-          | _ -> ());
-          Ast.Override (source, override)
-        )
-        (comp_block <* ws0 <* string "with" <* ws1)
+        (fun source override -> Ast.Override (source, override))
+        (term <* ws1 <* string "with" <* ws1)
         block
-      in
-      let comp_block_override =
-        choice [ override; comp_block ]
       in
       let repeat =
         lift2
-        (fun expr mult ->
-          Ast.Repeat (expr, mult))
-        comp_block_override
+        (fun expr mult -> Ast.Repeat (expr, mult))
+        (choice [ override; term ])
         (ws0 *> multiplier)
       in
-      let expression =
-        choice [ repeat; comp_block_override ]
-      in
+      let expression = choice [ repeat; override; term ] in
       let section =
         lift2
-        (fun label rhs -> Ast.Section (label, rhs))
+        (fun label expr -> Ast.Section (label, expr))
         (optional_label  <* ws0)
         expression
       in
       let assignment =
         lift2
-        (fun name rhs -> Ast.Assignment (name, rhs))
+        (fun name expr -> Ast.Assignment (name, expr))
         (const_name <* ws0)
         expression
       in
@@ -211,9 +196,7 @@ module Parsers = struct
     )
 
   let program =
-    wsc0 *>
-    sep_by eol statement
-    <* wsc0 <* end_of_input
+    wsc0 *> sep_by eol statement <* wsc0 <* end_of_input >>| fun exprs -> Ast.Block exprs
 end
 
 module Eval = struct
@@ -363,17 +346,16 @@ module Eval = struct
       Repeat (output, n)
 
     let rec to_string (output:expression): string =
-      let s_to_string (output:statement): string =
-        match output with
-        | Empty -> ""
-        | Anonymous expr -> to_string expr
-        | Label (_, expr) -> to_string expr
-      in
       match output with
       | Plain out -> out
       | Block stmt_outs ->
-        stmt_outs |> CCList.map (fun o -> s_to_string o)|> CCString.concat ""
+        stmt_outs |> CCList.map (fun o -> stmt_to_string o)|> CCString.concat ""
       | Repeat (out, n) -> CCString.repeat (to_string out) n
+    and stmt_to_string (output:statement): string =
+      match output with
+      | Empty -> ""
+      | Anonymous expr -> to_string expr
+      | Label (_, expr) -> to_string expr
   end
 
   module Env = struct
@@ -423,18 +405,6 @@ module Eval = struct
         | id -> Error (Format.sprintf "Unknown identifier '%s'" id)
 
   let rec eval_statement (stmt:Ast.statement) (env:Env.t): stmt_return =
-    let rec eval_expression (expr:Ast.expression) (env:Env.t): expr_return =
-      match expr with
-      | Ast.Computation c -> eval_computation c env
-      | Block stmts -> eval_block stmts env
-      | Override (original, override) ->
-          eval_expression override env >>= fun (_env, out_override) ->
-          eval_expression original env >>| fun (inner_env, out_orig) ->
-          (inner_env, Output.override out_orig out_override)
-      | Repeat (expr, n) ->
-          eval_expression expr env >>| fun (inner_env, out) ->
-          (inner_env, Output.Repeat (out, n))
-    in
     match stmt with
     | Section (None, expr) ->
         eval_expression expr env >>| fun (_inner_env, output) ->
@@ -447,6 +417,17 @@ module Eval = struct
         let new_env: Env.t = Env.add_wrapped key inner_env env |> Env.add key output in
         (new_env, Output.Empty)
     )
+  and eval_expression (expr:Ast.expression) (env:Env.t): expr_return =
+      match expr with
+      | Ast.Computation c -> eval_computation c env
+      | Block stmts -> eval_block stmts env
+      | Override (original, override) ->
+          eval_expression override env >>= fun (_env, out_override) ->
+          eval_expression original env >>| fun (inner_env, out_orig) ->
+          (inner_env, Output.override out_orig out_override)
+      | Repeat (expr, n) ->
+          eval_expression expr env >>| fun (inner_env, out) ->
+          (inner_env, Output.Repeat (out, n))
   and eval_block (stmts:Ast.statement list) (env:Env.t): expr_return =
     CCList.fold_left
     (
@@ -459,6 +440,6 @@ module Eval = struct
     stmts
     >>| fun (env, outputs) -> (env, Output.Block outputs)
 
-  let eval (prog:Ast.statement list): (string, string) result =
-    eval_block prog Env.empty >>| fun (_, output) -> Output.to_string output
+  let eval (prog:Ast.expression): (string, string) result =
+    eval_expression prog Env.empty >>| fun (_, output) -> Output.to_string output
 end
