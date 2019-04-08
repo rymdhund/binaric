@@ -391,6 +391,39 @@ let eval_override_tests = List.map
       b: h8 bb
     }
     |});
+
+    ("\x01", {|
+    {
+      a: {
+        b: h8 00
+      }
+    } with {
+      a: h8 01
+    }
+    |});
+
+    ("\x01", {|
+    {
+      a: {
+        b: h8 00
+      }
+    } with {
+      a.b: h8 01
+    }
+    |});
+
+    ("\x01", {|
+    const a = {
+      b: h8 00
+    }
+    const c = {
+      d: a
+    }
+    c with {
+      d.b: h8 01
+    }
+    |});
+
   ]
 
 let check_eval_fail expected s () =

@@ -349,9 +349,9 @@ module Eval = struct
         | Empty -> Empty
         | Anonymous _ as a -> a
         | Label (lbl, expr) -> (
-            match StringMap.find_opt (ns ^ lbl) out_map with
-            | Some out -> Label (lbl, out)
-            | None -> Label (lbl, override_expr (ns ^ "." ^ lbl) expr)
+          match StringMap.find_opt (ns ^ lbl) out_map with
+          | Some out -> Label (lbl, out)
+          | None -> Label (lbl, override_expr (ns ^ lbl ^ ".") expr)
         )
       in
       override_expr "" orig
