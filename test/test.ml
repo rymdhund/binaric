@@ -27,7 +27,7 @@ let mk_expression ?label ?(multiplier=1) identifier parameters =
   in
   Ast.Section (label, Computation (mk_computation multiplier identifier parameters))
 
-let expression_set = List.map
+let expression_tests = List.map
   (fun (exp, s) -> ("parse expression", `Quick, check_parse_expr exp s))
   [
     (
@@ -68,7 +68,7 @@ let expression_set = List.map
     );
   ]
 
-let program_set = List.map
+let program_tests = List.map
   (fun (exp, s) -> ("parse program", `Quick, check_parse exp s))
   [
     (
@@ -137,7 +137,7 @@ let check_eval exp s () =
     | Error msg -> Alcotest.fail msg
     | Ok res -> Alcotest.check binary_string "same evaluation" exp res
 
-let eval_oneliners_set = List.map
+let eval_oneliners_tests = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
     ("\x00", "d8  0 ");
@@ -159,7 +159,7 @@ let eval_oneliners_set = List.map
   ]
 
 
-let eval_multiliners_set = List.map
+let eval_multiliners_tests = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
     (
@@ -201,6 +201,14 @@ let eval_multiliners_set = List.map
       data:   h8 [ 00 ff 00 ff ]
       |}
     );
+    ("", "{}");
+    ("\xff\xff", {|
+    h8 ff
+    {}
+    {}
+    h8 ff
+    {}
+    |});
     (
       "\xff", {|
       a: {
@@ -254,7 +262,7 @@ let eval_multiliners_set = List.map
     );
   ]
 
-let eval_repetition_set = List.map
+let eval_repetition_tests = List.map
   (fun (exp, s) -> ("eval repetition", `Quick, check_eval exp s))
   [
     (
@@ -281,7 +289,7 @@ let eval_repetition_set = List.map
     );
   ]
 
-let eval_const_set = List.map
+let eval_const_tests = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
     ("", "const abc=h8 ff");
@@ -343,6 +351,56 @@ let eval_const_set = List.map
     );
   ]
 
+let eval_override_tests = List.map
+  (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
+  [
+    ("", "{} with {}");
+    ("\xff", {|
+    h8 ff with { }
+    |});
+    ("\xff", {|
+    h8 ff with {
+      h8 00
+    }
+    |});
+    (* with is only evaluated on the rhs *)
+    ("\xff", {|
+    a: h8 ff with {
+      a: h8 00
+    }
+    |});
+    ("\x00\xff", {|
+    {
+      a: h8 ff
+      b: h8 aa
+    } with {
+      a: h8 00
+      b: h8 ff
+    }
+    |});
+    ("\xff\xbb", {|
+    const a = {
+      a: h8 ff
+      b: h8 aa
+    }
+    a with {
+      b: h8 bb
+    }
+    |});
+
+    (* What should this be? *)
+    ("\xff\xbb", {|
+    {
+      a: h8 ff
+      {
+        b: h8 aa
+      }
+    } with {
+      b: h8 bb
+    }
+    |});
+  ]
+
 let check_eval_fail expected s () =
   match Angstrom.parse_string Parsers.program s with
   | Error msg -> Alcotest.(check string) "same error" expected msg
@@ -351,7 +409,7 @@ let check_eval_fail expected s () =
     | Error msg -> Alcotest.(check string) "same error" expected msg
     | Ok _ -> Alcotest.fail "Expected to fail"
 
-let eval_fail_set = List.map
+let eval_fail_tests = List.map
   (fun (exp, s) -> ("eval fail program", `Quick, check_eval_fail exp s))
   [
     ("d8: 256 is out of range", "d8  256 ");
@@ -372,11 +430,12 @@ let eval_fail_set = List.map
 
 let () =
   Alcotest.run "Binaric Tests" [
-    "expression set", expression_set;
-    "program_set", program_set;
-    "eval_oneliners_set", eval_oneliners_set;
-    "eval_multiliners_set", eval_multiliners_set;
-    "eval_repetition_set", eval_repetition_set;
-    "eval_const_set", eval_const_set;
-    "eval_fail_set", eval_fail_set;
+    "expression tests", expression_tests;
+    "program_tests", program_tests;
+    "eval_oneliners_tests", eval_oneliners_tests;
+    "eval_multiliners_tests", eval_multiliners_tests;
+    "eval_repetition_tests", eval_repetition_tests;
+    "eval_const_tests", eval_const_tests;
+    "eval_override_tests", eval_override_tests;
+    "eval_fail_tests", eval_fail_tests;
   ]
