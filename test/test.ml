@@ -2,69 +2,61 @@ module Ast = Binaric.Ast
 module Parsers = Binaric.Parsers
 module Eval = Binaric.Eval
 
-let expression =
+let statement =
   Alcotest.testable
-    (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_expression seg))
-    (Ast.equal_expression)
+    (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_statement seg))
+    (Ast.equal_statement)
 
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
 
 let check_parse_expr expected s () =
-  match Angstrom.parse_string Parsers.expression s with
+  match Angstrom.parse_string Parsers.statement s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.check expression "same expression" expected seg
+    Alcotest.check statement "same statement" expected seg
 
 let check_parse exp s () =
   match Angstrom.parse_string Parsers.program s with
   | Error msg -> Alcotest.fail msg
   | Ok seg ->
-    Alcotest.(check (list expression)) "same program" exp seg
+    Alcotest.(check (list statement)) "same program" exp seg
 
-let mk_expression ?label ?(multiplier=1) identifier parameters =
-  let mk_computation multiplier identifier parameters =
-    Ast.{ multiplier; identifier; parameters }
+let mk_statement ?label identifier parameters =
+  let mk_computation identifier parameters =
+    Ast.{ identifier; parameters }
   in
-  Ast.Section (label, Computation (mk_computation multiplier identifier parameters))
+  Ast.Section (label, Computation (mk_computation identifier parameters))
 
-let expression_tests = List.map
-  (fun (exp, s) -> ("parse expression", `Quick, check_parse_expr exp s))
+let statement_tests = List.map
+  (fun (exp, s) -> ("parse statement", `Quick, check_parse_expr exp s))
   [
     (
-      mk_expression "abc" [],
+      mk_statement "abc" [],
       "abc"
     );
     (
-      mk_expression ~label:"foo" "abc" [],
+      mk_statement ~label:"foo" "abc" [],
       "foo: abc"
     );
     (
-      mk_expression ~label:"f-o_o" "a-b_c" [],
+      mk_statement ~label:"f-o_o" "a-b_c" [],
       "f-o_o: a-b_c"
     );
     (
-      mk_expression ~label:"a" "b" [`Numeric "c"],
+      mk_statement ~label:"a" "b" [`Numeric "c"],
       "a: b c"
     );
     (
-      mk_expression "b" [],
+      mk_statement "b" [],
       "b [ ]"
     );
     (
-      mk_expression ~label:"a" "b" [`Numeric "c"],
+      mk_statement ~label:"a" "b" [`Numeric "c"],
       "a: b [ c ]"
     );
     (
-      mk_expression ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
+      mk_statement ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
       "a: b [ c d ]"
-    );
-    (
-      mk_expression ~multiplier:10 "b" [],
-      "b * 10"
-    );
-    (
-      mk_expression ~label:"a" ~multiplier:2 "b" [`Numeric "c"],
-      "a: b c * 2"
     );
   ]
 
@@ -73,57 +65,57 @@ let program_tests = List.map
   [
     (
       [
-        mk_expression "a" [];
-        mk_expression "b" [];
+        mk_statement "a" [];
+        mk_statement "b" [];
       ],
       "a\nb"
     );
     (
       [
-        mk_expression "a" [];
-        mk_expression "b" [];
+        mk_statement "a" [];
+        mk_statement "b" [];
       ],
       "a # comment\nb"
     );
     (
       [
-        mk_expression "a" [];
+        mk_statement "a" [];
       ],
       "# comment\na"
     );
     (
       [
-        mk_expression "a" [];
+        mk_statement "a" [];
       ],
       "\na"
     );
     (
       [
-        mk_expression "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b c ]"
     );
     (
       [
-        mk_expression "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ]"
     );
     (
       [
-        mk_expression "a" [ `Numeric "b"; `Numeric "c" ];
+        mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
       ],
       "a [ b #comment\n c ] \n "
     );
     (
       [
-        mk_expression "a" [ `String "abc" ];
+        mk_statement "a" [ `String "abc" ];
       ],
       "a \"abc\" "
     );
     (
       [
-        mk_expression "a" [ `String "\"" ];
+        mk_statement "a" [ `String "\"" ];
       ],
       "a  \"\\\"\" "
     );
@@ -430,7 +422,7 @@ let eval_fail_tests = List.map
 
 let () =
   Alcotest.run "Binaric Tests" [
-    "expression tests", expression_tests;
+    "statement tests", statement_tests;
     "program_tests", program_tests;
     "eval_oneliners_tests", eval_oneliners_tests;
     "eval_multiliners_tests", eval_multiliners_tests;
