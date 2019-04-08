@@ -380,8 +380,8 @@ let eval_override_tests = List.map
     }
     |});
 
-    (* What should this be? *)
-    ("\xff\xbb", {|
+    (* Anonymous blocks are impossible to override *)
+    ("\xff\xaa", {|
     {
       a: h8 ff
       {

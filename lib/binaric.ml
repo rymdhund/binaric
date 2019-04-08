@@ -183,7 +183,7 @@ module Parsers = struct
         block
       in
       let comp_block_override =
-        choice [ comp_block; override]
+        choice [ override; comp_block ]
       in
       let repeat =
         lift2
@@ -321,42 +321,40 @@ module Eval = struct
     let override (orig:expression) (over:expression): expression =
       let rec map_of_expr_out ns map (expr_out:expression) =
         match expr_out with
-        | Plain _
-        | Repeat _ -> map
+        | Plain _ -> map
+        | Repeat (expr, _) -> map_of_expr_out ns map expr
         | Block stmt_outs ->
             List.fold_left
               (fun map1 stmt_out -> map_of_stmt_out ns map1 stmt_out)
               map
               stmt_outs
       and map_of_stmt_out ns map (stmt_out:statement) =
-          match stmt_out with
-          | Label (lbl, expr_out) ->
-              Format.printf "add %s \n" (ns ^ lbl);
-              let expr_map = map_of_expr_out (ns ^ lbl ^ ".") map expr_out in
-              StringMap.merge map expr_map |> StringMap.add (ns ^ lbl) expr_out
-          | Some lbl, (Output.Block (outs, _) as b) ->
-              List.fold_left
-                (fun map1 output -> of_output1 (ns ^ lbl ^ ".") map1 output)
-                map
-                outs
-              |>
-              add (ns ^ lbl) b
-          | None, Plain _ -> map
-          | None, Block (outs, _) ->
-              (* Keep the same namespace if no label *)
-              List.fold_left
-                (fun map1 output -> of_output1 ns map1 output)
-                map
-                outs
-        in
-        match output with
-        | Plain _ -> empty
-        | Block (outs, _n) ->
-            CCList.fold_left
-            (fun map output -> of_output1 "" map output)
-            empty
-            outs
-      orig (* TODO *)
+        match stmt_out with
+        | Label (lbl, expr_out) ->
+            let expr_map = map_of_expr_out (ns ^ lbl ^ ".") map expr_out in
+            let merged = StringMap.union (fun _key _v1 v2 -> Some v2) map expr_map in
+            StringMap.add (ns ^ lbl) expr_out merged
+        | Empty
+        | Anonymous _ -> map
+      in
+      let out_map = map_of_expr_out "" StringMap.empty over in
+
+      let rec override_expr ns orig =
+        match orig with
+        | Plain _ as p -> p
+        | Repeat (expr, n) -> Repeat ((override_expr ns expr), n)
+        | Block stmts -> Block (CCList.map (override_stmt ns) stmts)
+      and override_stmt ns orig: statement =
+        match orig with
+        | Empty -> Empty
+        | Anonymous _ as a -> a
+        | Label (lbl, expr) -> (
+            match StringMap.find_opt (ns ^ lbl) out_map with
+            | Some out -> Label (lbl, out)
+            | None -> Label (lbl, override_expr (ns ^ "." ^ lbl) expr)
+        )
+      in
+      override_expr "" orig
 
     let plain (s:string): expression =
       Plain s
@@ -376,47 +374,6 @@ module Eval = struct
       | Block stmt_outs ->
         stmt_outs |> CCList.map (fun o -> s_to_string o)|> CCString.concat ""
       | Repeat (out, n) -> CCString.repeat (to_string out) n
-
-      (*
-    let no_label (expr_out:expression): statement =
-      {
-        label=None;
-        expr_out;
-      }
-      *)
-
-      (*
-    let label (label:string) (value:value) =
-      {
-        label = Some label;
-        value;
-      }
-
-    let rec to_string (output:value): string =
-      let s, m = match output with
-      | Plain (out, m) -> out, m
-      | Block (outs, m) ->
-        (outs |> CCList.map (fun o -> to_string o.value)|> CCString.concat ""), m
-      in
-      match s with
-      | "" -> ""
-      | s2 -> CCString.repeat s2 m
-
-    let of_string ?label ?(multiplier=1) (out:string): t =
-      {
-        label;
-        value = Plain (out, multiplier);
-      }
-
-    let mk_block ?label ?(multiplier=1) (outputs:t list): t =
-      {
-        label;
-        value = Block (outputs, multiplier)
-      }
-
-    let empty: expression =
-      of_string ""
-      *)
   end
 
   module Env = struct
@@ -430,19 +387,13 @@ module Eval = struct
 
     let add_wrapped (namespace:string) (wrap:t) (env:t): t =
         StringMap.fold
-        (fun key value env -> StringMap.add (namespace ^ "." ^ key) value env)
-        env
+        (fun key value env ->
+          StringMap.add (namespace ^ "." ^ key) value env)
         wrap
+        env
 
   end
 
-  (* Each evaluator returns the new variables set by it and it's output *)
-  (*
-  type eval_return = (Env.t * Output.t, string) result
-
-  type evaluator = Env.t -> eval_return
-  type evaluator_rhs = Env.t -> (Env.t * Output.value, string) result
-  *)
   type expr_return = (Env.t * Output.expression, string) result
   type stmt_return = (Env.t * Output.statement, string) result
 
