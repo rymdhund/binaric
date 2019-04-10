@@ -1,145 +1,38 @@
-module Ast = Binaric.Ast
-module Parsers = Binaric.Parsers
-module Eval = Binaric.Eval
-
-let statement =
-  Alcotest.testable
-    (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_statement seg))
-    (Ast.equal_statement)
-
-let expression =
-  Alcotest.testable
-    (fun ppf seg -> Format.fprintf ppf "%s" (Ast.show_expression seg))
-    (Ast.equal_expression)
-
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
 
-let check_parse_expr expected s () =
-  match Angstrom.parse_string Parsers.statement s with
+let check_eval exp (prog:string) () =
+  match Binaric.run prog with
   | Error msg -> Alcotest.fail msg
-  | Ok seg ->
-    Alcotest.check statement "same statement" expected seg
+  | Ok res -> Alcotest.check binary_string "same evaluation" exp res
 
-let check_parse (expected:Ast.expression) s () =
-  match Angstrom.parse_string Parsers.program s with
-  | Error msg -> Alcotest.fail msg
-  | Ok expr ->
-    Alcotest.(check) expression "same program" expected expr
-
-let mk_block stmts =
-  Ast.Block stmts
-
-let mk_statement ?label identifier parameters =
-  let mk_computation identifier parameters =
-    Ast.{ identifier; parameters }
-  in
-  match label with
-  | Some lbl -> Ast.Label (lbl, Computation (mk_computation identifier parameters))
-  | None -> Ast.Anonymous (Computation (mk_computation identifier parameters))
-
-let statement_tests = List.map
-  (fun (exp, s) -> ("parse statement", `Quick, check_parse_expr exp s))
+let label_tests = List.map
+  (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
-    (
-      mk_statement "abc" [],
-      "abc"
-    );
-    (
-      mk_statement ~label:"foo" "abc" [],
-      "foo: abc"
-    );
-    (
-      mk_statement ~label:"f-o_o" "a-b_c" [],
-      "f-o_o: a-b_c"
-    );
-    (
-      mk_statement ~label:"a" "b" [`Numeric "c"],
-      "a: b c"
-    );
-    (
-      mk_statement "b" [],
-      "b [ ]"
-    );
-    (
-      mk_statement ~label:"a" "b" [`Numeric "c"],
-      "a: b [ c ]"
-    );
-    (
-      mk_statement ~label:"a" "b" [`Numeric "c"; `Numeric "d"],
-      "a: b [ c d ]"
-    );
+    ("", "abc: []");
+    ("", "f-o_o: []");
+    ("", "const a-b_c = []\na-b_c");
   ]
 
-let program_tests = List.map
-  (fun (exp, s) -> ("parse program", `Quick, check_parse exp s))
+let comment_tests = List.map
+  (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
-    (
-      mk_block [
-        mk_statement "a" [];
-        mk_statement "b" [];
-      ],
-      "a\nb"
-    );
-    (
-      mk_block [
-        mk_statement "a" [];
-        mk_statement "b" [];
-      ],
-      "a # comment\nb"
-    );
-    (
-      mk_block [
-        mk_statement "a" [];
-      ],
-      "# comment\na"
-    );
-    (
-      mk_block [
-        mk_statement "a" [];
-      ],
-      "\na"
-    );
-    (
-      mk_block [
-        mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
-      ],
-      "a [ b c ]"
-    );
-    (
-      mk_block [
-        mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
-      ],
-      "a [ b #comment\n c ]"
-    );
-    (
-      mk_block [
-        mk_statement "a" [ `Numeric "b"; `Numeric "c" ];
-      ],
-      "a [ b #comment\n c ] \n "
-    );
-    (
-      mk_block [
-        mk_statement "a" [ `String "abc" ];
-      ],
-      "a \"abc\" "
-    );
-    (
-      mk_block [
-        mk_statement "a" [ `String "\"" ];
-      ],
-      "a  \"\\\"\" "
-    );
+    ("\x00\x00", "h8 0\nh8 0");
+    ("\x00\x00", "h8 0 # comment\nh8 0");
+    ("\x00", "# comment\nh8 0");
+    ("\x00", "\nh8 0");
+    ("\x00\xff", "h8 [ 0 #comment\n ff ]");
+    ("\x00\xff", "h8 [ 0 #comment\n ff ] \n ");
   ]
 
-let check_eval exp s () =
-  match Angstrom.parse_string Parsers.program s with
-  | Error msg -> Alcotest.fail msg
-  | Ok prog ->
-    match Eval.eval prog with
-    | Error msg -> Alcotest.fail msg
-    | Ok res -> Alcotest.check binary_string "same evaluation" exp res
+let string_tests = List.map
+  (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
+  [
+    ("abc", {|asc "abc"|});
+    ("\\", {|asc "\\"|});
+    ("\"", {|asc "\""|});
+  ]
 
-let eval_oneliners_tests = List.map
+let oneliners_tests = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
     ("\x00", "d8  0 ");
@@ -161,7 +54,7 @@ let eval_oneliners_tests = List.map
   ]
 
 
-let eval_multiliners_tests = List.map
+let multiliners_tests = List.map
   (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
   [
     (
@@ -264,7 +157,7 @@ let eval_multiliners_tests = List.map
     );
   ]
 
-let eval_repetition_tests = List.map
+let repetition_tests = List.map
   (fun (exp, s) -> ("eval repetition", `Quick, check_eval exp s))
   [
     (
@@ -291,7 +184,7 @@ let eval_repetition_tests = List.map
     );
   ]
 
-let eval_const_tests = List.map
+let const_tests = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
     ("", "const abc=h8 ff");
@@ -353,7 +246,7 @@ let eval_const_tests = List.map
     );
   ]
 
-let eval_override_tests = List.map
+let override_tests = List.map
   (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
   [
     ("", "{} with {}");
@@ -441,17 +334,15 @@ let eval_override_tests = List.map
 
   ]
 
-let check_eval_fail expected s () =
-  match Angstrom.parse_string Parsers.program s with
+let check_fail expected (prog:string) () =
+  match Binaric.run prog with
   | Error msg -> Alcotest.(check string) "same error" expected msg
-  | Ok prog ->
-    match Eval.eval prog with
-    | Error msg -> Alcotest.(check string) "same error" expected msg
-    | Ok _ -> Alcotest.fail "Expected to fail"
+  | Ok _ -> Alcotest.fail "Expected to fail"
 
-let eval_fail_tests = List.map
-  (fun (exp, s) -> ("eval fail program", `Quick, check_eval_fail exp s))
+let fail_tests = List.map
+  (fun (exp, s) -> ("eval fail program", `Quick, check_fail exp s))
   [
+    ("Unknown identifier 'abc'", "abc");
     ("d8: 256 is out of range", "d8  256 ");
     ("d8: -255 is out of range", "d8  -255 ");
     (": Unexpected character: '-'", "d8  1-1 ");
@@ -470,12 +361,12 @@ let eval_fail_tests = List.map
 
 let () =
   Alcotest.run "Binaric Tests" [
-    "statement tests", statement_tests;
-    "program_tests", program_tests;
-    "eval_oneliners_tests", eval_oneliners_tests;
-    "eval_multiliners_tests", eval_multiliners_tests;
-    "eval_repetition_tests", eval_repetition_tests;
-    "eval_const_tests", eval_const_tests;
-    "eval_override_tests", eval_override_tests;
-    "eval_fail_tests", eval_fail_tests;
+    "comment_tests", comment_tests;
+    "string_tests", string_tests;
+    "oneliners_tests", oneliners_tests;
+    "multiliners_tests", multiliners_tests;
+    "repetition_tests", repetition_tests;
+    "const_tests", const_tests;
+    "override_tests", override_tests;
+    "fail_tests", fail_tests;
   ]
