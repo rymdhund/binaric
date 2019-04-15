@@ -1,4 +1,5 @@
 (executable
-  (name main)
-  (libraries angstrom)
+  (name binaric)
+  (libraries lib containers)
+  (preprocess (pps ppx_deriving.show ppx_deriving.eq))
 )
