@@ -17,8 +17,9 @@ depends: [
   "containers"
   "ppx_deriving"
   "dune" {build}
-  "crowbar" {with-test}
+  "alcotest" {with-test}
 ]
+
 build: [
   ["dune" "subst"] {pinned}
   ["dune" "build" "-p" name "-j" jobs]

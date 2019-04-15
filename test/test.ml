@@ -1,7 +1,7 @@
 let binary_string = Alcotest.testable (fun fmt -> Format.fprintf fmt "%S") (=)
 
 let check_eval exp (prog:string) () =
-  match Binaric.run prog with
+  match Lib.run prog with
   | Error msg -> Alcotest.fail msg
   | Ok res -> Alcotest.check binary_string "same evaluation" exp res
 
@@ -335,7 +335,7 @@ let override_tests = List.map
   ]
 
 let check_fail expected (prog:string) () =
-  match Binaric.run prog with
+  match Lib.run prog with
   | Error msg -> Alcotest.(check string) "same error" expected msg
   | Ok _ -> Alcotest.fail "Expected to fail"
 

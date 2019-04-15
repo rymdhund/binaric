@@ -1,7 +1,7 @@
 (executable
  (name test)
  (modules test)
- (libraries binaric alcotest))
+ (libraries lib alcotest))
 
 (alias
  (name   runtest)

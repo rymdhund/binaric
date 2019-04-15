@@ -14,7 +14,7 @@ B /home/user/ocaml/binaric/_opam/lib/ppx_deriving
 B /home/user/ocaml/binaric/_opam/lib/result
 B /home/user/ocaml/binaric/_opam/lib/uchar
 B /home/user/ocaml/binaric/_opam/lib/uuidm
-B ../_build/default/lib/.binaric.objs/byte
+B ../_build/default/lib/.lib.objs/byte
 B ../_build/default/test/.test.eobjs/byte
 S /home/user/ocaml/binaric/_opam/lib/alcotest
 S /home/user/ocaml/binaric/_opam/lib/angstrom
