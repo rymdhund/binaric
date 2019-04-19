@@ -334,6 +334,14 @@ let override_tests = List.map
 
   ]
 
+let import_tests = List.map
+  (fun (exp, s) -> ("import", `Quick, check_eval exp s))
+  [
+    ("\x01", {|
+    import "a.bn"
+    |});
+  ]
+
 let check_fail expected (prog:string) () =
   match Lib.run prog with
   | Error msg -> Alcotest.(check string) "same error" expected msg
@@ -368,5 +376,6 @@ let () =
     "repetition_tests", repetition_tests;
     "const_tests", const_tests;
     "override_tests", override_tests;
+    "import_tests", import_tests;
     "fail_tests", fail_tests;
   ]

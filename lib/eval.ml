@@ -179,6 +179,11 @@ and eval_expression (expr:Ast.expression) (env:Env.t): expr_return =
     | Repeat (expr, n) ->
         eval_expression expr env >>| fun (inner_env, out) ->
         (inner_env, Output.Repeat (out, n))
+    | Import _file ->
+        Ok (Env.empty, Output.Block []) (* TODO: raise exception *)
+    | ImportBlock stmts ->
+        eval_block stmts Env.empty
+
 and eval_block (stmts:Ast.statement list) (env:Env.t): expr_return =
   CCList.fold_left
   (
@@ -190,4 +195,3 @@ and eval_block (stmts:Ast.statement list) (env:Env.t): expr_return =
   (Ok (env, []))
   stmts
   >>| fun (env, outputs) -> (env, Output.Block outputs)
-

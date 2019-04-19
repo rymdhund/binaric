@@ -128,6 +128,9 @@ let computation =
   (name)
   ((ws0 *> parameters1) <|> return [])
 
+let import =
+  string "import" *> ws1 *> quoted_string >>| fun (`String file:[>`String of string]) -> Ast.Import file
+
 let start_block = (char '{')
 
 let end_block = (char '}')
@@ -137,7 +140,7 @@ let statement =
     let block =
       (start_block *> wsc0 *> sep_by eol stmt <* wsc0 <* end_block) >>| fun exprs -> Ast.Block exprs
     in
-    let term = choice [ computation; block ] in
+    let term = choice [ import; computation; block ] in
     let override =
       lift2
       (fun source override -> Ast.Override (source, override))

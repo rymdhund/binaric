@@ -16,4 +16,6 @@ and expression =
   | Block of statement list
   | Override of expression * expression
   | Repeat of expression * int
+  | Import of string                (* An import statement *)
+  | ImportBlock of statement list   (* After "linking" in the imported code *)
 [@@ deriving show, eq]
