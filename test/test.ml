@@ -303,9 +303,14 @@ c with {
 let import_tests =
   List.map
     (fun (exp, s) -> ("import", `Quick, check_eval exp s))
-    [ ("\x01", {|
-    import "a.bn"
-    |}) ]
+    [ ("\xff", {|
+    import "ff.bn"
+    |});
+      (* Imports are always relative to the importing file *)
+      ("\x0a", {|
+    import "dir/inc_test.bn"
+    |})
+    ]
 
 
 let check_fail expected (prog : string) () =

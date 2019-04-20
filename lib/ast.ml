@@ -22,4 +22,5 @@ and expression =
   | Override of expression * expression
   | Repeat of expression * int
   | Import of string (* An import statement *)
+  | ImportBlock of statement list (* A "linked" import statement *)
 [@@deriving show, eq]

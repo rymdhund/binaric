@@ -136,3 +136,30 @@ points with {
 }
 # gives 03 02 01 02
 ```
+
+# Importing other binaric files
+
+You can import other binaric files.
+
+```
+import "png.bn"  # Will output the result of png.bn
+
+import "png.bn" with {
+  size: d8 12
+}
+
+const png = import "png.bn"
+
+png with {
+  size: d8 10
+}
+
+```
+
+Imports are always relative to the importing file.
+
+```
+# this is "src/file.bn"
+
+import "utils/foo.bn"   # will import utils/src/foo.bn
+```

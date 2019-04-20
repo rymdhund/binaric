@@ -8,7 +8,7 @@ let main (outfile : string option) (force : bool) (infile : string) : unit =
   let outfile =
     match (outfile, drop_ending infile) with
     | Some f, _ -> f
-    | None, Some f -> f
+    | None, Some f -> Filename.basename f
     | None, None -> "out.bin"
   in
   match Lib.eval_file infile outfile ~force with

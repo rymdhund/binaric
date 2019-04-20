@@ -201,7 +201,8 @@ and eval_expression (expr : Ast.expression) (env : Env.t) : expr_return =
   | Repeat (expr, n) ->
       eval_expression expr env
       >>| fun (inner_env, out) -> (inner_env, Output.Repeat (out, n))
-  | Import _file -> Ok (Env.empty, Output.Block [])
+  | Import _file -> raise (Invalid_argument "Cant eval an import")
+  | ImportBlock stmts -> eval_block stmts Env.empty
 
 
 (* TODO: raise exception *)
