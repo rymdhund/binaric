@@ -1,0 +1,4 @@
+profile = sparse
+break-separators = after-and-docked
+break-cases = toplevel
+module-item-spacing = preserve
