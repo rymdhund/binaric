@@ -42,7 +42,9 @@ third:  h8  03
 # Will give the bytes 0x01, 0x02, 0x03
 ```
 
-# Sections
+# Blocks
+
+Blocks can be used to express nested data.
 
 ```
 header: {
@@ -66,9 +68,6 @@ three  # 03
 three  # 03
 four   # 00 04
 ```
-
-
-# Scopes
 
 Constants are scoped within the block.
 
@@ -162,4 +161,12 @@ Imports are always relative to the importing file.
 # this is "src/file.bn"
 
 import "utils/foo.bn"   # will import utils/src/foo.bn
+```
+
+# Importing binary files
+
+To import raw binary data from a file, use the `import.raw` expression.
+
+```
+import.raw "abc.png"
 ```

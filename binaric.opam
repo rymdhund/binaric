@@ -15,6 +15,7 @@ depends: [
   "angstrom"
   "angstrom-unix"
   "containers"
+  "gen"
   "ppx_deriving"
   "dune" {build}
   "alcotest" {with-test}

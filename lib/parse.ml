@@ -146,6 +146,13 @@ let import =
   >>| fun (`String file : [> `String of string ]) -> Ast.Import file
 
 
+let import_raw =
+  lift
+    (fun (`String file : [> `String of string ]) ->
+      Ast.ImportRaw (file, None, None) )
+    (string "import.raw" *> ws1 *> quoted_string)
+
+
 let start_block = char '{'
 
 let end_block = char '}'
@@ -158,7 +165,7 @@ let statement =
         <* end_block
         >>| fun exprs -> Ast.Block exprs
       in
-      let term = choice [ import; computation; block ] in
+      let term = choice [ import; import_raw; computation; block ] in
       let override =
         lift2
           (fun source override -> Ast.Override (source, override))

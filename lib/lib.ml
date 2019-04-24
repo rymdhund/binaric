@@ -21,8 +21,8 @@ let eval_file ?(force = false) in_file out_file =
             else [ Open_binary; Open_creat; Open_excl ]
           in
           with_out ~flags ~mode:0o644 out_file (fun oc ->
-              Printf.fprintf oc "%s" (Eval.Output.to_string output) ;
-              Ok () ) ))
+              let consumer = output_string oc in
+              Eval.Output.write_out consumer output ) ))
   with
   | Sys_error msg -> Error msg
 
@@ -33,4 +33,8 @@ let run ?(dir = ".") (prog : string) : (string, string) result =
   Link.link_expr dir ast
   >>= fun ast_linked ->
   Eval.eval_expression ast_linked Eval.Env.empty
-  >>| fun (_, output) -> Eval.Output.to_string output
+  >>= fun (_, output) ->
+  let buffer = Buffer.create 64 in
+  let consumer = Buffer.add_string buffer in
+  Eval.Output.write_out consumer output
+  >>= fun _ -> Ok (Buffer.contents buffer)

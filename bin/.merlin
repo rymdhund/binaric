@@ -2,8 +2,10 @@ EXCLUDE_QUERY_DIR
 B /home/user/ocaml/binaric/_opam/lib/angstrom
 B /home/user/ocaml/binaric/_opam/lib/angstrom-unix
 B /home/user/ocaml/binaric/_opam/lib/bigstringaf
+B /home/user/ocaml/binaric/_opam/lib/bytes
 B /home/user/ocaml/binaric/_opam/lib/containers
 B /home/user/ocaml/binaric/_opam/lib/containers/monomorphic
+B /home/user/ocaml/binaric/_opam/lib/gen
 B /home/user/ocaml/binaric/_opam/lib/ocaml
 B /home/user/ocaml/binaric/_opam/lib/ppx_deriving
 B /home/user/ocaml/binaric/_opam/lib/result
@@ -13,8 +15,10 @@ B ../_build/default/lib/.lib.objs/byte
 S /home/user/ocaml/binaric/_opam/lib/angstrom
 S /home/user/ocaml/binaric/_opam/lib/angstrom-unix
 S /home/user/ocaml/binaric/_opam/lib/bigstringaf
+S /home/user/ocaml/binaric/_opam/lib/bytes
 S /home/user/ocaml/binaric/_opam/lib/containers
 S /home/user/ocaml/binaric/_opam/lib/containers/monomorphic
+S /home/user/ocaml/binaric/_opam/lib/gen
 S /home/user/ocaml/binaric/_opam/lib/ocaml
 S /home/user/ocaml/binaric/_opam/lib/ppx_deriving
 S /home/user/ocaml/binaric/_opam/lib/result

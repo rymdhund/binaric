@@ -21,6 +21,7 @@ and expression =
   | Block of statement list
   | Override of expression * expression
   | Repeat of expression * int
+  | ImportRaw of string * int option * int option
   | Import of string (* An import statement *)
   | ImportBlock of statement list (* A "linked" import statement *)
 [@@deriving show, eq]

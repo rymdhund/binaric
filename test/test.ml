@@ -309,6 +309,15 @@ let import_tests =
       (* Imports are always relative to the importing file *)
       ("\x0a", {|
     import "dir/inc_test.bn"
+    |});
+      ("\xff\x00\xff", {|
+    import.raw "ff00ff.raw"
+    |});
+      ("\x00\xff", {|
+    import.raw "ff00ff.raw" [1..]
+    |});
+      ("\xff\x00", {|
+    import.raw "ff00ff.raw" [..1]
     |})
     ]
 

@@ -1,5 +1,5 @@
 (library
   (name lib)
-  (libraries angstrom angstrom.unix containers)
+  (libraries angstrom angstrom.unix containers gen)
   (preprocess (pps ppx_deriving.show ppx_deriving.eq))
 )

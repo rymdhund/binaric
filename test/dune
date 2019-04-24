@@ -5,5 +5,5 @@
 
 (alias
  (name   runtest)
- (deps ff.bn dir/inc_test.bn dir/inc_a.bn)
+ (deps ff.bn dir/inc_test.bn dir/inc_a.bn ff00ff.raw)
  (action (run ./test.exe)))

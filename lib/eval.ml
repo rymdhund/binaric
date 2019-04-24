@@ -62,6 +62,7 @@ module Output = struct
 
   and expression =
     | Plain of string
+    | ImportRaw of string * int option * int option
     | Block of statement list
     | Repeat of expression * int
 
@@ -69,6 +70,7 @@ module Output = struct
     let rec map_of_expr_out ns map (expr_out : expression) =
       match expr_out with
       | Plain _ -> map
+      | ImportRaw _ -> map
       | Repeat (expr, _) -> map_of_expr_out ns map expr
       | Block stmt_outs ->
           List.fold_left
@@ -89,6 +91,7 @@ module Output = struct
     let rec override_expr ns orig =
       match orig with
       | Plain _ as p -> p
+      | ImportRaw _ as r -> r
       | Repeat (expr, n) -> Repeat (override_expr ns expr, n)
       | Block stmts -> Block (CCList.map (override_stmt ns) stmts)
     and override_stmt ns orig : statement =
@@ -107,21 +110,37 @@ module Output = struct
 
   let repeat (n : int) (output : expression) : expression = Repeat (output, n)
 
-  let rec to_string (output : expression) : string =
+  let rec write_out (consumer : string -> unit) (output : expression) :
+      (unit, string) result =
     match output with
-    | Plain out -> out
+    | Plain out ->
+        consumer out ;
+        Ok ()
+    | ImportRaw (file, _start, _end_) ->
+      ( try
+          CCIO.with_in file (fun ic ->
+              let chunks = CCIO.read_chunks ic in
+              Gen.iter consumer chunks ;
+              Ok () )
+        with
+      | Sys_error msg -> Error msg )
     | Block stmt_outs ->
-        stmt_outs
-        |> CCList.map (fun o -> stmt_to_string o)
-        |> CCString.concat ""
-    | Repeat (out, n) -> CCString.repeat (to_string out) n
+        CCList.fold_left
+          (fun res o -> res >>= fun () -> stmt_write_out consumer o)
+          (Ok ())
+          stmt_outs
+    | Repeat (out, n) ->
+        Seq.fold_left
+          (fun res _ -> res >>= fun () -> write_out consumer out)
+          (Ok ())
+          (Util.range_seq n)
 
 
-  and stmt_to_string (output : statement) : string =
+  and stmt_write_out consumer (output : statement) : (unit, string) result =
     match output with
-    | Empty -> ""
-    | Anonymous expr -> to_string expr
-    | Label (_, expr) -> to_string expr
+    | Empty -> Ok ()
+    | Anonymous expr -> write_out consumer expr
+    | Label (_, expr) -> write_out consumer expr
 end
 
 module Env = struct
@@ -202,6 +221,8 @@ and eval_expression (expr : Ast.expression) (env : Env.t) : expr_return =
       eval_expression expr env
       >>| fun (inner_env, out) -> (inner_env, Output.Repeat (out, n))
   | Import _file -> raise (Invalid_argument "Cant eval an import")
+  | ImportRaw (file, start, end_) ->
+      Ok (Env.empty, Output.ImportRaw (file, start, end_))
   | ImportBlock stmts -> eval_block stmts Env.empty
 
 
