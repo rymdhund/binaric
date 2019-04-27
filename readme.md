@@ -2,14 +2,22 @@
 
 A friendly dsl for constructing binary files.
 
-The basic values are `i8` up to `i64`, and `utf8`
+The basic numeric values are `i8` up to `i64`
 
 ```
 i8.dec   128     # one byte represented as a decimal number
 i32.dec  1024    # four bytes represented as a decimal number, output in big endian
 i32.dec  -1      # four bytes represented as a decimal number, output in big endian
 i8.hex   ff      # one byte represented as a hex number
-asc  "abc"   # three ascii letters
+```
+
+Strings can be encoded as `utf8` (which includes ascii), or `utf16`. Source files are always treated as utf8.
+
+```
+utf8  "abc"
+utf8  "¢"
+utf16  "¢"
+utf16.le  "¢"
 ```
 
 You can specify many outputs at a time
@@ -17,7 +25,7 @@ You can specify many outputs at a time
 ```
 i8.hex  [ ff 00 ff 00 ]    # Will output ff00ff00
 i16.dec [ 0 1 2 ]          # Will output 0000 0001 0002
-asc [
+utf8 [
   "here is "
   "one long "
   "string"

@@ -17,6 +17,7 @@ depends: [
   "containers"
   "gen"
   "ppx_deriving"
+  "uutf"
   "dune" {build}
   "alcotest" {with-test}
 ]

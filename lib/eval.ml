@@ -2,12 +2,6 @@ let ( >>= ) = CCResult.( >>= )
 let ( >>| ) = CCResult.( >|= )
 
 module Literals = struct
-  let get_raw v =
-    match v with
-    | `Numeric s -> s
-    | `String s -> s
-
-
   module Decoders = struct
     let get_num = function
       | `Numeric s -> Ok s
@@ -41,6 +35,7 @@ module Literals = struct
       get_num v >>= Util.int64_of_hex_res
 
 
+    (* The input string is already assumed to be in utf-8 *)
     let utf8 v : (string, string) result = get_str v
   end
 
@@ -76,14 +71,45 @@ module Literals = struct
 
     let i64 n : (string, string) result = Ok (Util.chars_of_int64 n)
 
-    let utf8 s : (string, string) result = Ok s
+    let recode out_encoding (src : string) (dst : Buffer.t) =
+      let rec loop d e =
+        match Uutf.decode d with
+        | `Uchar _ as u ->
+            ignore (Uutf.encode e u) ;
+            loop d e
+        | `End -> ignore (Uutf.encode e `End)
+        | `Malformed _ ->
+            ignore (Uutf.encode e (`Uchar Uutf.u_rep)) ;
+            loop d e
+        | `Await -> assert false
+      in
+      let d = Uutf.decoder ~encoding:`UTF_8 (`String src) in
+      let e = Uutf.encoder out_encoding (`Buffer dst) in
+      loop d e
+
+
+    let utf8 s : (string, string) result =
+      let buffer = Buffer.create (String.length s) in
+      recode `UTF_8 s buffer ;
+      Ok (Buffer.contents buffer)
+
+
+    let utf16_be s : (string, string) result =
+      let buffer = Buffer.create (String.length s) in
+      recode `UTF_16BE s buffer ;
+      Ok (Buffer.contents buffer)
+
+
+    let utf16_le s : (string, string) result =
+      let buffer = Buffer.create (String.length s) in
+      recode `UTF_16LE s buffer ;
+      Ok (Buffer.contents buffer)
   end
 
-  let asc v =
+  let get_raw v =
     match v with
-    | `Numeric s ->
-        Error (Format.sprintf "Invalid numeric \"%s\", expected string" s)
-    | `String s -> Ok s
+    | `Numeric s -> s
+    | `String s -> s
 
 
   let literal identifier values : (string, string) result =
@@ -111,7 +137,9 @@ module Literals = struct
     | [ "i24"; "hex" ] -> apply D.hex E.i24 values
     | [ "i32"; "hex" ] -> apply D.hex32 E.i32 values
     | [ "i64"; "hex" ] -> apply D.hex64 E.i64 values
-    | [ "asc" ] -> apply D.utf8 E.utf8 values
+    | [ "utf8" ] -> apply D.utf8 E.utf8 values
+    | [ "utf16" ] | [ "utf16"; "be" ] -> apply D.utf8 E.utf16_be values
+    | [ "utf16"; "le" ] -> apply D.utf8 E.utf16_le values
     | _ -> Error (Format.sprintf "Unknown identifier '%s'" identifier)
 end
 

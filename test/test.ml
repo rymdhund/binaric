@@ -29,7 +29,7 @@ let comment_tests =
 let string_tests =
   List.map
     (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
-    [ ("abc", {|asc "abc"|}); ("\\", {|asc "\\"|}); ("\"", {|asc "\""|}) ]
+    [ ("abc", {|utf8 "abc"|}); ("\\", {|utf8 "\\"|}); ("\"", {|utf8 "\""|}) ]
 
 
 let literal_tests =
@@ -65,7 +65,12 @@ let literal_tests =
       ("\xff\xff\xff\xff", "i32.hex ffffffff");
       ("\x00\x00\x00\x00\x00\x00\x00\x00", "i64.hex  0");
       ("\x00\x00\x00\x00\x00\x00\x00\x01", "i64.hex  1");
-      ("\xff\xff\xff\xff\xff\xff\xff\xff", "i64.hex  ffffffffffffffff")
+      ("\xff\xff\xff\xff\xff\xff\xff\xff", "i64.hex  ffffffffffffffff");
+      ("", {|utf8 ""|});
+      ("abc", {|utf8 "abc"|});
+      ("\xc2\xa2", "utf8 \"\xc2\xa2\"");
+      ("\x00\xa2", "utf16 \"\xc2\xa2\"");
+      ("\xa2\x00", "utf16.le \"\xc2\xa2\"")
     ]
 
 
@@ -175,7 +180,7 @@ three: i8.dec  3
 |}
       );
       ("abcdef", {|
-asc [
+utf8 [
  "abc"
  "def"
 ]
