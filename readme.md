@@ -5,18 +5,18 @@ A friendly dsl for constructing binary files.
 The basic supported operations are:
 
 ```
-d8   128     # one byte represented as a decimal number
-d32  1024    # four bytes represented as a decimal number, output in big endian
-d32  -1      # four bytes represented as a decimal number, output in big endian
-h8   ff      # one byte represented as a hex number
+i8.dec   128     # one byte represented as a decimal number
+i32.dec  1024    # four bytes represented as a decimal number, output in big endian
+i32.dec  -1      # four bytes represented as a decimal number, output in big endian
+i8.hex   ff      # one byte represented as a hex number
 asc  "abc"   # three ascii letters
 ```
 
 You can specify many outputs at a time
 
 ```
-h8  [ ff 00 ff 00 ]    # Will output ff00ff00
-d16 [ 0 1 2 ]          # Will output 0000 0001 0002
+i8.hex  [ ff 00 ff 00 ]    # Will output ff00ff00
+i16.dec [ 0 1 2 ]          # Will output 0000 0001 0002
 asc [
   "here is "
   "one long "
@@ -29,9 +29,9 @@ asc [
 Labels are good for documentation:
 
 ```
-first:  h8  01
-second: h8  02
-third:  h8  03
+first:  i8.hex  01
+second: i8.hex  02
+third:  i8.hex  03
 
 # Will give the bytes 0x01, 0x02, 0x03
 ```
@@ -42,11 +42,11 @@ Blocks can be used to express nested data.
 
 ```
 header: {
-  width:  d8 2
-  height: d8 2
+  width:  i8.dec 2
+  height: i8.dec 2
 }
 body: {
-  data: h8 [ ff fa 00 aa ]
+  data: i8.hex [ ff fa 00 aa ]
 }
 ```
 
@@ -55,8 +55,8 @@ body: {
 You can bind variables to be used later.
 
 ```
-let three = d8   3
-let four  = d8 [ 0 4  ]
+let three = i8.dec   3
+let four  = i8.dec [ 0 4  ]
 
 three  # 03
 three  # 03
@@ -66,11 +66,11 @@ four   # 00 04
 Constants are scoped within the block.
 
 ```
-let a = h8 05
+let a = i8.hex 05
 
 x: {
   let a = {
-    h8 ff
+    i8.hex ff
   }
   a     # Gives 0xff
 }
@@ -82,7 +82,7 @@ You can assign a block to a variable, and you can get to the nested variables.
 ```
 let a = {
   let b = {
-    h8 ff
+    i8.hex ff
   }
 }
 a.b   # Gives 0xff
@@ -93,11 +93,11 @@ a.b   # Gives 0xff
 Expressions can be repeated using the `**` operator.
 
 ```
-h8  0f ** 4  #  0f 0f 0f 0f
+i8.hex  0f ** 4  #  0f 0f 0f 0f
 
 {
-  h8 ff
-  d8 0
+  i8.hex ff
+  i8.dec 0
 } ** 2  # ff 00 ff 00
 ```
 
@@ -107,10 +107,10 @@ You cat override labels using the `with` construction:
 
 ```
 {
-  x:  d8 1
-  y:  d8 2
+  x:  i8.dec 1
+  y:  i8.dec 2
 } with {
-  x:  d8 3
+  x:  i8.dec 3
 }
 # gives 03 02
 ```
@@ -119,12 +119,12 @@ It also works on blocks assigned to a variable:
 
 ```
 let point = {
-  x:  d8 1
-  y:  d8 2
+  x:  i8.dec 1
+  y:  i8.dec 2
 }
 
 point with {
-  x:  d8 3
+  x:  i8.dec 3
 }
 # gives 03 02
 ```
@@ -138,7 +138,7 @@ let points = {
 }
 
 points with {
-  p1.x: d8 3
+  p1.x: i8.dec 3
 }
 # gives 03 02 01 02
 ```
@@ -151,13 +151,13 @@ You can import other binaric files.
 import "png.bn"  # Will output the result of png.bn
 
 import "png.bn" with {
-  size: d8 12
+  size: i8.dec 12
 }
 
 let png = import "png.bn"
 
 png with {
-  size: d8 10
+  size: i8.dec 10
 }
 
 ```
@@ -182,7 +182,7 @@ You can also import parts of a binary file. This is useful when you want to repl
 
 ```
 header: {
-  h8 [ ff ff ff ]
+  i8.hex [ ff ff ff ]
 }
 import.raw "abc.png" [3..]
 ```
@@ -192,7 +192,7 @@ And here we change just the 5th byte of a file:
 ```
 import.raw "file.bn" [..5]
 
-h8 00
+i8.hex 00
 
 import.raw "file.bn" [6..]
 ```

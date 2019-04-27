@@ -9,39 +9,39 @@ module Literals = struct
         Error (Format.sprintf "Invalid string \"%s\", expected numeric" s)
 
 
-  let d8 v =
+  let i8_dec v =
     get_value v
     >>= Util.int_of_string_res
     >>= fun n ->
     if n > 255 || n < -254
-    then Error (Format.sprintf "d8: %d is out of range" n)
+    then Error (Format.sprintf "i8.dec: %d is out of range" n)
     else Ok (CCString.of_char @@ char_of_int (n land 0xff))
 
 
-  let d16 v =
+  let i16_dec v =
     get_value v
     >>= Util.int_of_string_res
     >>= fun n ->
     if n > 0xffff || n <= -0xffff
-    then Error (Format.sprintf "d16: %d is out of range" n)
+    then Error (Format.sprintf "i16_dec: %d is out of range" n)
     else
       Ok
         (CCString.of_list
            [ char_of_int ((n lsr 8) land 0xff); char_of_int (n land 0xff) ])
 
 
-  let d32 v =
+  let i32_dec v =
     get_value v
     >>= Util.int32_of_string_res
     >>= fun n -> Ok (Util.chars_of_int32 n)
 
 
-  let h8 v =
+  let i8_hex v =
     get_value v
     >>= Util.int_of_hex_res
     >>= fun n ->
     if n > 0xff || n < 0
-    then Error (Format.sprintf "h8: %x is out of range" n)
+    then Error (Format.sprintf "i8.hex: %x is out of range" n)
     else Ok (CCString.of_char @@ char_of_int n)
 
 
@@ -205,10 +205,10 @@ let eval_computation (comp : Ast.computation) (env : Env.t) : expr_return =
   | Ast.{ identifier; parameters; _ } ->
       let open Literals in
       ( match identifier with
-      | "d8" -> evaluate d8 parameters
-      | "h8" -> evaluate h8 parameters
-      | "d16" -> evaluate d16 parameters
-      | "d32" -> evaluate d32 parameters
+      | "i8.dec" -> evaluate i8_dec parameters
+      | "i8.hex" -> evaluate i8_hex parameters
+      | "i16.dec" -> evaluate i16_dec parameters
+      | "i32.dec" -> evaluate i32_dec parameters
       | "asc" -> evaluate asc parameters
       | id -> Error (Format.sprintf "Unknown identifier '%s'" id) )
 
