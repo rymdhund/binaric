@@ -43,12 +43,29 @@ let literal_tests =
       ("\x00\x01", "i16.dec  1");
       ("\xff\xff", "i16.dec  65535");
       ("\xff\xff", "i16.dec  -1");
-      ("\x00\x00\x00\x00", "i32.dec  0 ");
-      ("\x00\x00\x00\x01", "i32.dec  1 ");
-      ("\xff\xff\xff\xff", "i32.dec  4294967295 ");
-      ("\xff\xff\xff\xff", "i32.dec  -1 ");
+      ("\x00\x00\x00\x00", "i32.dec  0");
+      ("\x00\x00\x00\x01", "i32.dec  1");
+      ("\xff\xff\xff\xff", "i32.dec  4294967295");
+      ("\xff\xff\xff\xff", "i32.dec  -1");
+      ("\x00\x00\x00\x00\x00\x00\x00\x00", "i64.dec  0");
+      ("\x00\x00\x00\x00\x00\x00\x00\x01", "i64.dec  1");
+      ("\xff\xff\xff\xff\xff\xff\xff\xff", "i64.dec  18446744073709551615");
+      ("\xff\xff\xff\xff\xff\xff\xff\xff", "i64.dec  -1");
       ("\x00", "i8.hex 0");
-      ("\xff", "i8.hex ff")
+      ("\x01", "i8.hex 1");
+      ("\xff", "i8.hex ff");
+      ("\x00\x00", "i16.hex 0");
+      ("\x00\x01", "i16.hex 1");
+      ("\xff\xff", "i16.hex ffff");
+      ("\x00\x00\x00", "i24.hex 0");
+      ("\x00\x00\x01", "i24.hex 1");
+      ("\xff\xff\xff", "i24.hex ffffff");
+      ("\x00\x00\x00\x00", "i32.hex 0");
+      ("\x00\x00\x00\x01", "i32.hex 1");
+      ("\xff\xff\xff\xff", "i32.hex ffffffff");
+      ("\x00\x00\x00\x00\x00\x00\x00\x00", "i64.hex  0");
+      ("\x00\x00\x00\x00\x00\x00\x00\x01", "i64.hex  1");
+      ("\xff\xff\xff\xff\xff\xff\xff\xff", "i64.hex  ffffffffffffffff")
     ]
 
 
@@ -371,14 +388,16 @@ let fail_tests =
   List.map
     (fun (exp, s) -> ("eval fail program", `Quick, check_fail exp s))
     [ ("Unknown identifier 'abc'", "abc");
-      ("i8.dec: 256 is out of range", "i8.dec  256 ");
-      ("i8.dec: -255 is out of range", "i8.dec  -255 ");
+      ("i8.dec: '256' out of range", "i8.dec  256 ");
+      ("i8.dec: '-255' out of range", "i8.dec  -255 ");
       (": Unexpected character: '-'", "i8.dec  1-1 ");
-      ("Invalid decimal number: 0f", "i8.dec  0f ");
-      ("i8.hex: 100 is out of range", "i8.hex  100 ");
-      ("Invalid hex number: \"-1\"", "i8.hex  -1 ");
-      ("Invalid 32 bit decimal number: \"4294967296\"", "i32.dec  4294967296");
-      ("Invalid 32 bit decimal number: \"-4294967295\"", "i32.dec  -4294967295");
+      ("i8.dec: '0f' Invalid decimal number", "i8.dec  0f ");
+      ("i8.hex: '100' out of range", "i8.hex  100 ");
+      ("i8.hex: '-1' Invalid hex number", "i8.hex  -1 ");
+      ( "i32.dec: '4294967296' Invalid 32 bit decimal number",
+        "i32.dec  4294967296" );
+      ( "i32.dec: '-4294967295' Invalid 32 bit decimal number",
+        "i32.dec  -4294967295" );
       ( "Unknown identifier 'bar'",
         {|
       bar: i8.hex  ff

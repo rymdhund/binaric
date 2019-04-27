@@ -2,7 +2,7 @@
 
 A friendly dsl for constructing binary files.
 
-The basic supported operations are:
+The basic values are `i8` up to `i64`, and `utf8`
 
 ```
 i8.dec   128     # one byte represented as a decimal number
