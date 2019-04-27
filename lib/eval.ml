@@ -328,7 +328,6 @@ and eval_expression (expr : Ast.expression) (env : Env.t) : expr_return =
   | ImportBlock stmts -> eval_block stmts Env.empty
 
 
-(* TODO: raise exception *)
 and eval_block (stmts : Ast.statement list) (env : Env.t) : expr_return =
   CCList.fold_left
     (fun acc stmt ->

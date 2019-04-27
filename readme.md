@@ -107,6 +107,8 @@ i8.hex  0f ** 4  #  0f 0f 0f 0f
   i8.hex ff
   i8.dec 0
 } ** 2  # ff 00 ff 00
+
+i8.hex 0 ** 1000000000   # 1GB of zeroes
 ```
 
 # Templating
