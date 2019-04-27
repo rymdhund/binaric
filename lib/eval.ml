@@ -165,6 +165,7 @@ module Output = struct
     | Label (_, expr) -> write_out consumer expr
 end
 
+(** The environment holds the assigned variables *)
 module Env = struct
   type t = Output.expression StringMap.t
 

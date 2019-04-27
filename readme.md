@@ -56,13 +56,13 @@ body: {
 }
 ```
 
-# Constants
+# Variables
 
-You can define constants to be used later.
+You can bind variables to be used later.
 
 ```
-const three = d8   3
-const four  = d8 [ 0 4  ]
+let three = d8   3
+let four  = d8 [ 0 4  ]
 
 three  # 03
 three  # 03
@@ -72,22 +72,22 @@ four   # 00 04
 Constants are scoped within the block.
 
 ```
-const a = h8 05
+let a = h8 05
 
 x: {
-  const a = {
+  let a = {
     h8 ff
   }
   a     # Gives 0xff
 }
-a     # Gives 0x05
+a       # Gives 0x05
 ```
 
-You can assign a block to a constant, and you can get to the inner constants.
+You can assign a block to a variable, and you can get to the nested variables.
 
 ```
-const a = {
-  const b = {
+let a = {
+  let b = {
     h8 ff
   }
 }
@@ -108,10 +108,10 @@ You cat override labels using the `with` construction:
 # gives 03 02
 ```
 
-It also works on blocks assigned to a constant:
+It also works on blocks assigned to a variable:
 
 ```
-const point = {
+let point = {
   x:  d8 1
   y:  d8 2
 }
@@ -125,7 +125,7 @@ point with {
 And nested templating:
 
 ```
-const points = {
+let points = {
   p1:   point
   p2:   point
 }
@@ -147,7 +147,7 @@ import "png.bn" with {
   size: d8 12
 }
 
-const png = import "png.bn"
+let png = import "png.bn"
 
 png with {
   size: d8 10

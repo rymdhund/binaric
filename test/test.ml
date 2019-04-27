@@ -11,7 +11,7 @@ let check_eval exp (prog : string) () =
 let label_tests =
   List.map
     (fun (exp, s) -> ("eval program", `Quick, check_eval exp s))
-    [ ("", "abc: []"); ("", "f-o_o: []"); ("", "const a-b_c = []\na-b_c") ]
+    [ ("", "abc: []"); ("", "f-o_o: []"); ("", "let a-b_c = []\na-b_c") ]
 
 
 let comment_tests =
@@ -154,27 +154,27 @@ h8 ff * 3
 a: h8 ff * 3
 |});
       ("\xff\xff", {|
-const a = h8 ff * 2
+let a = h8 ff * 2
 a
 |});
       ("\xff\xff", {|
-const a = h8 ff
+let a = h8 ff
 a * 2
 |})
     ]
 
 
-let const_tests =
+let let_tests =
   List.map
-    (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
-    [ ("", "const abc=h8 ff");
+    (fun (exp, s) -> ("eval let", `Quick, check_eval exp s))
+    [ ("", "let abc=h8 ff");
       ("\xff\xff", {|
-const foo = h8  ff
+let foo = h8  ff
 foo
 foo
 |});
       ("\xff\xff", {|
-const bar = {
+let bar = {
   h8  ff
   h8  ff
 }
@@ -182,7 +182,7 @@ bar
 |});
       ( "\xff\x00\xff",
         {|
-const x = {
+let x = {
   h8  ff
   foo: {
     h8 00
@@ -192,23 +192,23 @@ const x = {
 x
 |} );
       ("\xff\x00", {|
-const x = h8 00
+let x = h8 00
 {
-  const x = h8 ff
+  let x = h8 ff
   x
 }
 x
 |});
       ("\xff", {|
-const x = {
-  const y = h8 ff
+let x = {
+  let y = h8 ff
 }
 x.y
 |});
       ("\xff\x00", {|
-const y = h8 00
-const x = {
-  const y = h8 ff
+let y = h8 00
+let x = {
+  let y = h8 ff
 }
 x.y
 y
@@ -218,7 +218,7 @@ y
 
 let override_tests =
   List.map
-    (fun (exp, s) -> ("eval const", `Quick, check_eval exp s))
+    (fun (exp, s) -> ("eval let", `Quick, check_eval exp s))
     [ ("", "{} with {}");
       ("\xff", {|
 h8 ff with { }
@@ -246,7 +246,7 @@ a: h8 ff with {
 |} );
       ( "\xff\xbb",
         {|
-const a = {
+let a = {
   a: h8 ff
   b: h8 aa
 }
@@ -286,10 +286,10 @@ a with {
 |});
       ( "\x01",
         {|
-const a = {
+let a = {
   b: h8 00
 }
-const c = {
+let c = {
   d: a
 }
 c with {
@@ -367,7 +367,7 @@ let () =
       ("oneliners_tests", oneliners_tests);
       ("multiliners_tests", multiliners_tests);
       ("repetition_tests", repetition_tests);
-      ("const_tests", const_tests);
+      ("let_tests", let_tests);
       ("override_tests", override_tests);
       ("import_tests", import_tests);
       ("fail_tests", fail_tests)

@@ -125,7 +125,7 @@ let natural_number = take_while1 is_digit >>| int_of_string
 
 let multiplier = char '*' *> ws0 *> natural_number
 
-let const_name = string "const" *> ws0 *> name <* ws0 <* char '='
+let var_name = string "let" *> ws0 *> name <* ws0 <* char '='
 
 let end_of_input =
   peek_char
@@ -196,7 +196,7 @@ let statement =
       let assignment_stmt =
         lift2
           (fun name expr -> Ast.Assignment (name, expr))
-          (const_name <* ws0)
+          (var_name <* ws0)
           expression
       in
       let label_stmt =
