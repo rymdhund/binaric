@@ -170,3 +170,22 @@ To import raw binary data from a file, use the `import.raw` expression.
 ```
 import.raw "abc.png"
 ```
+
+You can also import parts of a binary file. This is useful when you want to replace a part of a file. Here we overwrite the first 3 bytes of "abc.png":
+
+```
+header: {
+  h8 [ ff ff ff ]
+}
+import.raw "abc.png" [3..]
+```
+
+And here we change just the 5th byte of a file:
+
+```
+import.raw "file.bn" [..5]
+
+h8 00
+
+import.raw "file.bn" [6..]
+```

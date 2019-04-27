@@ -112,14 +112,36 @@ module Output = struct
 
   let rec write_out (consumer : string -> unit) (output : expression) :
       (unit, string) result =
+    let read_chunks_max ~max ic =
+      let size = 1024 in
+      let buf = Bytes.create size in
+      let count = ref max in
+      let next () =
+        if !count = 0
+        then None
+        else
+          let n = input ic buf 0 (Util.int_min size !count) in
+          count := !count - n ;
+          if n = 0 then None else Some (Bytes.sub_string buf 0 n)
+      in
+      next
+    in
     match output with
     | Plain out ->
         consumer out ;
         Ok ()
-    | ImportRaw (file, _start, _end_) ->
+    | ImportRaw (file, start, end_) ->
       ( try
           CCIO.with_in file (fun ic ->
-              let chunks = CCIO.read_chunks ic in
+              ( match start with
+              | None -> ()
+              | Some n -> seek_in ic n ) ;
+              let chunks =
+                match (end_, start) with
+                | None, _ -> CCIO.read_chunks ic
+                | Some n, Some m -> read_chunks_max ~max:(n - m) ic
+                | Some n, None -> read_chunks_max ~max:n ic
+              in
               Gen.iter consumer chunks ;
               Ok () )
         with

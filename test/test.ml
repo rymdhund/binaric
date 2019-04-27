@@ -317,7 +317,19 @@ let import_tests =
     import.raw "ff00ff.raw" [1..]
     |});
       ("\xff\x00", {|
-    import.raw "ff00ff.raw" [..1]
+    import.raw "ff00ff.raw" [..2]
+    |});
+      ("\xff\x00", {|
+    import.raw "ff00ff.raw" [0..2]
+    |});
+      ("\x00", {|
+    import.raw "ff00ff.raw" [1..2]
+    |});
+      ("", {|
+    import.raw "ff00ff.raw" [10..]
+    |});
+      ("", {|
+    import.raw "ff00ff.raw" [..0]
     |})
     ]
 

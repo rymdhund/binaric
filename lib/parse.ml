@@ -121,7 +121,9 @@ let multi_parameter = char '[' *> wsc0 *> sep_by wsc0 param <* wsc0 <* char ']'
 
 let parameters1 = multi_parameter <|> single_parameter
 
-let multiplier = char '*' *> ws0 *> take_while1 is_digit >>| int_of_string
+let natural_number = take_while1 is_digit >>| int_of_string
+
+let multiplier = char '*' *> ws0 *> natural_number
 
 let const_name = string "const" *> ws0 *> name <* ws0 <* char '='
 
@@ -146,11 +148,23 @@ let import =
   >>| fun (`String file : [> `String of string ]) -> Ast.Import file
 
 
+(** parse something like: [1..2] *)
+let range =
+  let some x = Some x in
+  let opt_num = option None (natural_number >>| some) in
+  lift2
+    (fun x y -> (x, y))
+    (string "[" *> ws0 *> opt_num)
+    (ws0 *> string ".." *> ws0 *> opt_num <* ws0 <* string "]")
+
+
 let import_raw =
-  lift
-    (fun (`String file : [> `String of string ]) ->
-      Ast.ImportRaw (file, None, None) )
+  let opt_range = option (None, None) range in
+  lift2
+    (fun (`String file : [> `String of string ]) (start, end_) ->
+      Ast.ImportRaw (file, start, end_) )
     (string "import.raw" *> ws1 *> quoted_string)
+    (ws0 *> opt_range)
 
 
 let start_block = char '{'

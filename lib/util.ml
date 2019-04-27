@@ -1,6 +1,8 @@
 let ( >>= ) = CCResult.( >>= )
 let ( >>| ) = CCResult.( >|= )
 
+let int_min x y = if x < y then x else y
+
 let int_of_hex_res s : (int, string) result =
   match int_of_string_opt ("0x" ^ s) with
   | None -> Error (Format.sprintf "Invalid hex number: \"%s\"" s)
