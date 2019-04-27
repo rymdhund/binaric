@@ -204,6 +204,12 @@ a
       ("\xff\xff", {|
 let a = i8.hex ff
 a ** 2
+  |});
+      ("\x01\xff\x01\xff", {|
+{
+  i8.hex 01
+  i8.hex ff
+} ** 2
 |})
     ]
 
