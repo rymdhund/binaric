@@ -148,18 +148,18 @@ let repetition_tests =
   List.map
     (fun (exp, s) -> ("eval repetition", `Quick, check_eval exp s))
     [ ("\xff\xff\xff", {|
-h8 ff * 3
+h8 ff ** 3
 |});
       ("\xff\xff\xff", {|
-a: h8 ff * 3
+a: h8 ff ** 3
 |});
       ("\xff\xff", {|
-let a = h8 ff * 2
+let a = h8 ff ** 2
 a
 |});
       ("\xff\xff", {|
 let a = h8 ff
-a * 2
+a ** 2
 |})
     ]
 

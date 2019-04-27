@@ -123,7 +123,7 @@ let parameters1 = multi_parameter <|> single_parameter
 
 let natural_number = take_while1 is_digit >>| int_of_string
 
-let multiplier = char '*' *> ws0 *> natural_number
+let multiplier = string "**" *> ws0 *> natural_number
 
 let var_name = string "let" *> ws0 *> name <* ws0 <* char '='
 

@@ -24,12 +24,6 @@ asc [
 ]
 ```
 
-# Repetition
-
-```
-h8  0f * 4  #  0f 0f 0f 0f
-```
-
 # Labels
 
 Labels are good for documentation:
@@ -92,6 +86,19 @@ let a = {
   }
 }
 a.b   # Gives 0xff
+```
+
+# Repetition
+
+Expressions can be repeated using the `**` operator.
+
+```
+h8  0f ** 4  #  0f 0f 0f 0f
+
+{
+  h8 ff
+  d8 0
+} ** 2  # ff 00 ff 00
 ```
 
 # Templating
