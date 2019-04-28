@@ -2,109 +2,10 @@ let ( >>= ) = CCResult.( >>= )
 let ( >>| ) = CCResult.( >|= )
 
 module Literals = struct
-  module Decoders = struct
-    let get_num = function
-      | `Numeric s -> Ok s
-      | `String s ->
-          Error (Format.sprintf "Invalid string \"%s\", expected numeric" s)
-
-
-    let get_str = function
-      | `Numeric s ->
-          Error (Format.sprintf "Invalid numeric \"%s\", expected string" s)
-      | `String s -> Ok s
-
-
-    let dec v : (int, string) result = get_num v >>= Util.int_of_string_res
-
-    let dec32 v : (Int32.t, string) result =
-      get_num v >>= Util.int32_of_string_res
-
-
-    let dec64 v : (Int64.t, string) result =
-      get_num v >>= Util.int64_of_string_res
-
-
-    let hex v : (int, string) result = get_num v >>= Util.int_of_hex_res
-
-    let hex32 v : (Int32.t, string) result =
-      get_num v >>= Util.int32_of_hex_res
-
-
-    let hex64 v : (Int64.t, string) result =
-      get_num v >>= Util.int64_of_hex_res
-
-
-    (* The input string is already assumed to be in utf-8 *)
-    let utf8 v : (string, string) result = get_str v
-  end
-
-  module Encoders = struct
-    let i8 n : (string, string) result =
-      if n > 255 || n < -254
-      then Error "out of range"
-      else Ok (CCString.of_char @@ char_of_int (n land 0xff))
-
-
-    let i16 n : (string, string) result =
-      if n > 0xffff || n <= -0xffff
-      then Error "out of range"
-      else
-        Ok
-          (CCString.of_list
-             [ char_of_int ((n lsr 8) land 0xff); char_of_int (n land 0xff) ])
-
-
-    let i24 n : (string, string) result =
-      if n > 0xffffff || n <= -0xffffff
-      then Error "out of range"
-      else
-        Ok
-          (CCString.of_list
-             [ char_of_int ((n lsr 16) land 0xff);
-               char_of_int ((n lsr 8) land 0xff);
-               char_of_int (n land 0xff)
-             ])
-
-
-    let i32 n : (string, string) result = Ok (Util.chars_of_int32 n)
-
-    let i64 n : (string, string) result = Ok (Util.chars_of_int64 n)
-
-    let recode out_encoding (src : string) (dst : Buffer.t) =
-      let rec loop d e =
-        match Uutf.decode d with
-        | `Uchar _ as u ->
-            ignore (Uutf.encode e u) ;
-            loop d e
-        | `End -> ignore (Uutf.encode e `End)
-        | `Malformed _ ->
-            ignore (Uutf.encode e (`Uchar Uutf.u_rep)) ;
-            loop d e
-        | `Await -> assert false
-      in
-      let d = Uutf.decoder ~encoding:`UTF_8 (`String src) in
-      let e = Uutf.encoder out_encoding (`Buffer dst) in
-      loop d e
-
-
-    let utf8 s : (string, string) result =
-      let buffer = Buffer.create (String.length s) in
-      recode `UTF_8 s buffer ;
-      Ok (Buffer.contents buffer)
-
-
-    let utf16_be s : (string, string) result =
-      let buffer = Buffer.create (String.length s) in
-      recode `UTF_16BE s buffer ;
-      Ok (Buffer.contents buffer)
-
-
-    let utf16_le s : (string, string) result =
-      let buffer = Buffer.create (String.length s) in
-      recode `UTF_16LE s buffer ;
-      Ok (Buffer.contents buffer)
-  end
+  type t =
+    [ `Numeric of string
+    | `String of string
+    ]
 
   let get_raw v =
     match v with
@@ -112,35 +13,70 @@ module Literals = struct
     | `String s -> s
 
 
+  let be = (module Encode.Be : Encode.EndianSig)
+  let le = (module Encode.Le : Encode.EndianSig)
+  let dec = (module Decode.Dec : Decode.BaseSig)
+  let hex = (module Decode.Hex : Decode.BaseSig)
+
+  type decoder_encoder = t -> (string, string) result
+
+  let dec_enc ~identifier decoder encoder : decoder_encoder =
+   fun v ->
+    match decoder v >>= fun decoded -> encoder decoded with
+    | Ok _ as k -> k
+    | Error e -> Error (Printf.sprintf "%s: '%s' %s" identifier (get_raw v) e)
+
+
+  let parse_literal identifier : (decoder_encoder, string) result =
+    let head, tail = CCString.split ~by:"." identifier |> CCList.hd_tl in
+    let parse current m =
+      match (m, current) with
+      | "hex", Some (endian, None) -> Some (endian, Some hex)
+      | "dec", Some (endian, None) -> Some (endian, Some dec)
+      | "be", Some (None, base) -> Some (Some be, base)
+      | "le", Some (None, base) -> Some (Some le, base)
+      | _ -> None
+    in
+    match CCList.fold_left parse (Some (None, None)) tail with
+    | None ->
+        Error
+          (Printf.sprintf "a Couldn't recognise identifier '%s'" identifier)
+    | Some (endian, base) ->
+        let endian_or_default = CCOpt.get_or ~default:be endian in
+        ( match (head, endian, endian_or_default, base) with
+        | "i8", None, _, Some base ->
+            let module B = (val base : Decode.BaseSig) in
+            Ok (dec_enc ~identifier B.int Encode.i8)
+        | "i16", _, endian, Some base ->
+            let module B = (val base : Decode.BaseSig) in
+            let module E = (val endian : Encode.EndianSig) in
+            Ok (dec_enc ~identifier B.int E.i16)
+        | "i24", _, endian, Some base ->
+            let module B = (val base : Decode.BaseSig) in
+            let module E = (val endian : Encode.EndianSig) in
+            Ok (dec_enc ~identifier B.int E.i24)
+        | "i32", _, endian, Some base ->
+            let module B = (val base : Decode.BaseSig) in
+            let module E = (val endian : Encode.EndianSig) in
+            Ok (dec_enc ~identifier B.int32 E.i32)
+        | "i64", _, endian, Some base ->
+            let module B = (val base : Decode.BaseSig) in
+            let module E = (val endian : Encode.EndianSig) in
+            Ok (dec_enc ~identifier B.int64 E.i64)
+        | "utf8", None, _, None ->
+            Ok (dec_enc ~identifier Decode.utf8 Encode.utf8)
+        | "utf16", _, endian, None ->
+            let module E = (val endian : Encode.EndianSig) in
+            Ok (dec_enc ~identifier Decode.utf8 E.utf16)
+        | _ ->
+            Error
+              (Printf.sprintf "b Couldn't recognise identifier '%s'" identifier)
+        )
+
+
   let literal identifier values : (string, string) result =
-    let dec_enc decoder encoder v =
-      match decoder v >>= fun decoded -> encoder decoded with
-      | Ok _ as k -> k
-      | Error e ->
-          Error (Printf.sprintf "%s: '%s' %s" identifier (get_raw v) e)
-    in
-    let apply decoder encoder xs =
-      let de = dec_enc decoder encoder in
-      Util.result_map de xs >>| CCString.concat ""
-    in
-    let parts = CCString.split ~by:"." identifier in
-    let module E = Encoders in
-    let module D = Decoders in
-    match parts with
-    | [ "i8"; "dec" ] -> apply D.dec E.i8 values
-    | [ "i16"; "dec" ] -> apply D.dec E.i16 values
-    | [ "i24"; "dec" ] -> apply D.dec E.i24 values
-    | [ "i32"; "dec" ] -> apply D.dec32 E.i32 values
-    | [ "i64"; "dec" ] -> apply D.dec64 E.i64 values
-    | [ "i8"; "hex" ] -> apply D.hex E.i8 values
-    | [ "i16"; "hex" ] -> apply D.hex E.i16 values
-    | [ "i24"; "hex" ] -> apply D.hex E.i24 values
-    | [ "i32"; "hex" ] -> apply D.hex32 E.i32 values
-    | [ "i64"; "hex" ] -> apply D.hex64 E.i64 values
-    | [ "utf8" ] -> apply D.utf8 E.utf8 values
-    | [ "utf16" ] | [ "utf16"; "be" ] -> apply D.utf8 E.utf16_be values
-    | [ "utf16"; "le" ] -> apply D.utf8 E.utf16_le values
-    | _ -> Error (Format.sprintf "Unknown identifier '%s'" identifier)
+    parse_literal identifier
+    >>= fun dec_enc -> Util.result_map dec_enc values >>| CCString.concat ""
 end
 
 module StringMap = CCMap.Make (CCString)
