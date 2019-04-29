@@ -119,8 +119,9 @@ let single_parameter = param >>| fun x -> (`Default, [ x ])
 
 let base =
   let hex = string "0x" >>| fun _ -> `Hex in
+  let bin = string "0b" >>| fun _ -> `Binary in
   let default = string "" >>| fun _ -> `Default in
-  hex <|> default
+  hex <|> bin <|> default
 
 
 let multi_parameter =

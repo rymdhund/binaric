@@ -10,20 +10,22 @@ $ binaric -o rgb.bmp examples/rgb.bmp.bn
 
 ## Types
 
-The basic numeric types are `i8` up to `i64`.
+The basic numeric types are `i8` up to `i64`. You can enter numbers in decimal, hex or binary.
 
 ```
-i8   128     # one byte given by a decimal number
-i32  1024    # four byte given by decimal number
-i32  -1      # four bytes given by a negative decimal number
-i8   0xff    # one byte given by a hex number
+i8   128        # one byte given by a decimal number
+i32  1024       # four byte given by decimal number
+i32  -1         # four bytes given by a negative decimal number
+i8   0xff       # one byte given by a hex number
+i8   0b11001100 # one byte given by a binary number
 ```
 
 Underscores in numbers are ignored but can be used to improve readability.
 
 ```
-million: i32  1_000_000
-flags:   i8   0b111_01_000
+i32  1_000_000     # one million
+
+i8   0b111_01_000  # some flags
 ```
 
 Endianess is specified by `.le` or `.be`. Big endian is the default.

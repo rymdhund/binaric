@@ -7,7 +7,7 @@ type literal =
 type computation = {
   identifier : string;
   parameters : literal list;
-  default_encoding : [ `Default | `Hex ]
+  default_encoding : [ `Default | `Hex | `Binary ]
 }
 [@@deriving show, eq]
 
