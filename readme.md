@@ -2,7 +2,15 @@
 
 A friendly dsl for constructing binary files.
 
-The basic numeric values are `i8` up to `i64`. You can specify the base of the number using `.dec` or `.hex`.
+## Basic usage
+
+```
+binaric examples/rgb.bmp.bn
+```
+
+## Types
+
+The basic numeric types are `i8` up to `i64`. You can specify the base of the number using `.dec` or `.hex`.
 
 ```
 i8.dec   128     # one byte represented as a decimal number
@@ -14,7 +22,7 @@ i8.hex   ff      # one byte represented as a hex number
 Endianess is specified by `.le` or `.be`. Big endian is the default.
 
 ```
-i32.dec 1  # 00 00 00 01
+i32.dec 1     # 00 00 00 01
 i32.be.dec 1  # 00 00 00 01
 i32.le.dec 1  # 01 00 00 00
 ```
@@ -28,21 +36,21 @@ utf16     "¢"
 utf16.le  "¢"
 ```
 
-You can specify many outputs at a time
+You can specify a number of values at a time.
 
 ```
 i8.hex  [ ff 00 ff 00 ]    # Will output ff00ff00
 i16.dec [ 0 1 2 ]          # Will output 0000 0001 0002
 utf8 [
-  "here is "
-  "one long "
-  "string"
+  "This is "
+  "three appended "
+  "strings"
 ]
 ```
 
-# Labels
+## Labels
 
-Labels are good for documentation:
+Labels can be used to document your values.
 
 ```
 first:  i8.hex  01
@@ -52,7 +60,7 @@ third:  i8.hex  03
 # Will give the bytes 0x01, 0x02, 0x03
 ```
 
-# Blocks
+## Blocks
 
 Blocks can be used to express nested data.
 
@@ -66,45 +74,41 @@ body: {
 }
 ```
 
-# Variables
+## Variables
 
 You can bind variables to be used later.
 
 ```
-let three = i8.dec   3
-let four  = i8.dec [ 0 4  ]
+let three = i8.dec 3
+let four  = i8.dec [ 0 4 ]
 
 three  # 03
 three  # 03
 four   # 00 04
 ```
 
-Constants are scoped within the block.
+Variables are scoped within the block.
 
 ```
-let a = i8.hex 05
+let foo = i8.hex 05
 
-x: {
-  let a = {
-    i8.hex ff
-  }
-  a     # Gives 0xff
+{
+  let foo = i8.hex ff
+  foo                   # Gives 0xff
 }
-a       # Gives 0x05
+foo                     # Gives 0x05
 ```
 
-You can assign a block to a variable, and you can get to the nested variables.
+You can assign a block to a variable and you can get to the nested variables.
 
 ```
-let a = {
-  let b = {
-    i8.hex ff
-  }
+let foo = {
+  let bar = i8.hex ff
 }
-a.b   # Gives 0xff
+foo.bar   # Gives 0xff
 ```
 
-# Repetition
+## Repetition
 
 Expressions can be repeated using the `**` operator.
 
@@ -119,7 +123,7 @@ i8.hex  0f ** 4  #  0f 0f 0f 0f
 i8.hex 0 ** 1000000000   # 1GB of zeroes
 ```
 
-# Templating
+## Templating
 
 You cat override labels using the `with` construction:
 
@@ -161,12 +165,12 @@ points with {
 # gives 03 02 01 02
 ```
 
-# Importing other binaric files
+## Importing other binaric files
 
 You can import other binaric files.
 
 ```
-import "png.bn"  # Will output the result of png.bn
+import "png.bn"       # will run the "png.bn" file
 
 import "png.bn" with {
   size: i8.dec 12
@@ -183,12 +187,12 @@ png with {
 Imports are always relative to the importing file.
 
 ```
-# this is "src/file.bn"
+# This is "src/file.bn"
 
-import "utils/foo.bn"   # will import utils/src/foo.bn
+import "utils/foo.bn"   # will import src/utils/foo.bn
 ```
 
-# Importing binary files
+## Importing binary files
 
 To import raw binary data from a file, use the `import.raw` expression.
 
@@ -196,7 +200,7 @@ To import raw binary data from a file, use the `import.raw` expression.
 import.raw "abc.png"
 ```
 
-You can also import parts of a binary file. This is useful when you want to replace a part of a file. Here we overwrite the first 3 bytes of "abc.png":
+You can also import parts of a binary file. This is useful when you want to replace a part of a file. Here is how to replace the first 3 bytes of "abc.png":
 
 ```
 header: {
