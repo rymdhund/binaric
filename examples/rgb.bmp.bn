@@ -1,0 +1,36 @@
+# File header
+id:       utf8        "BM"
+size:     i32.le.dec  70        # 54 + 16
+reserved: i16.hex     [ 00 00]  # unused
+offset:   i32.le.dec  54        # 14+40
+
+# DIB Header
+header_size:        i32.le.dec 40
+width:              i32.le.dec 2
+height:             i32.le.dec 2
+color_planes:       i16.le.dec 1
+bits_per_pixel:     i16.le.dec 24
+compression:        i32.le.dec 0     # BI_RGB, no compression
+bitmap_data_size:   i32.le.dec 16    # size of raw bitmap data, including padding
+horiz_resolution:   i32.le.dec 2835  # pixels/metre
+vert_resolution:    i32.le.dec 2835  # pixels/metre
+colors_in_palette:  i32.le.dec 0
+important_colors:   i32.le.dec 0
+
+# Bitmap data
+let red   = i8.hex [ 00 00 ff ]
+let green = i8.hex [ 00 ff 00 ]
+let blue  = i8.hex [ ff 00 00 ]
+let white = i8.hex [ ff ff ff ]
+
+data: {
+  # first row
+  red
+  white
+  i8.hex 00 ** 2      # padding
+
+  # second row
+  blue
+  green
+  i8.hex 00 ** 2      # padding
+}
