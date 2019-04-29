@@ -5,7 +5,7 @@ A friendly dsl for constructing binary files.
 ## Basic usage
 
 ```
-binaric examples/rgb.bmp.bn
+$ binaric -o rgb.bmp examples/rgb.bmp.bn
 ```
 
 ## Types
