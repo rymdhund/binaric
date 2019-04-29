@@ -19,6 +19,13 @@ i32  -1      # four bytes given by a negative decimal number
 i8   0xff    # one byte given by a hex number
 ```
 
+Underscores in numbers are ignored but can be used to improve readability.
+
+```
+million: i32  1_000_000
+flags:   i8   0b111_01_000
+```
+
 Endianess is specified by `.le` or `.be`. Big endian is the default.
 
 ```

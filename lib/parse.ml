@@ -16,7 +16,7 @@ let is_name_char = function
 
 
 let is_param_char = function
-  | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' -> true
+  | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> true
   | _ -> false
 
 

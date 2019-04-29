@@ -77,7 +77,9 @@ let literal_tests =
       ("abc", {|utf8 "abc"|});
       ("\xc2\xa2", "utf8 \"\xc2\xa2\"");
       ("\x00\xa2", "utf16 \"\xc2\xa2\"");
-      ("\xa2\x00", "utf16.le \"\xc2\xa2\"")
+      ("\xa2\x00", "utf16.le \"\xc2\xa2\"");
+      ("\xf0\x11", "i16  0xf_0_1_1");
+      ("\x00\x0f\x42\x40", "i32  1_000_000")
     ]
 
 
