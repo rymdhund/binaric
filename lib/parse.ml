@@ -115,9 +115,20 @@ let value =
 
 let param = value <|> quoted_string
 
-let single_parameter = param >>| fun x -> [ x ]
+let single_parameter = param >>| fun x -> (`Default, [ x ])
 
-let multi_parameter = char '[' *> wsc0 *> sep_by wsc0 param <* wsc0 <* char ']'
+let base =
+  let hex = string "0x" >>| fun _ -> `Hex in
+  let default = string "" >>| fun _ -> `Default in
+  hex <|> default
+
+
+let multi_parameter =
+  lift2
+    (fun base params -> (base, params))
+    (base <* char '[')
+    (wsc0 *> sep_by wsc0 param <* wsc0 <* char ']')
+
 
 let parameters1 = multi_parameter <|> single_parameter
 
@@ -138,9 +149,10 @@ let debug msg = return () >>| fun _ -> Format.printf msg
 
 let computation =
   lift2
-    (fun identifier parameters -> Ast.Computation { identifier; parameters })
+    (fun identifier (default_encoding, parameters) ->
+      Ast.Computation { identifier; parameters; default_encoding } )
     name
-    (ws0 *> parameters1 <|> return [])
+    (ws0 *> parameters1 <|> return (`Default, []))
 
 
 let import =

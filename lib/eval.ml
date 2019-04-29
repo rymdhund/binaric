@@ -15,8 +15,6 @@ module Literals = struct
 
   let be = (module Encode.Be : Encode.EndianSig)
   let le = (module Encode.Le : Encode.EndianSig)
-  let dec = (module Decode.Dec : Decode.BaseSig)
-  let hex = (module Decode.Hex : Decode.BaseSig)
 
   type decoder_encoder = t -> (string, string) result
 
@@ -27,55 +25,52 @@ module Literals = struct
     | Error e -> Error (Printf.sprintf "%s: '%s' %s" identifier (get_raw v) e)
 
 
-  let parse_literal identifier : (decoder_encoder, string) result =
+  let parse_literal identifier default_encoding :
+      (decoder_encoder, string) result =
     let head, tail = CCString.split ~by:"." identifier |> CCList.hd_tl in
-    let parse current m =
-      match (m, current) with
-      | "hex", Some (endian, None) -> Some (endian, Some hex)
-      | "dec", Some (endian, None) -> Some (endian, Some dec)
-      | "be", Some (None, base) -> Some (Some be, base)
-      | "le", Some (None, base) -> Some (Some le, base)
-      | _ -> None
+    let endian =
+      match tail with
+      | [ "be" ] -> Ok (Some be)
+      | [ "le" ] -> Ok (Some le)
+      | [] -> Ok None
+      | _ ->
+          Error
+            (Printf.sprintf "Couldn't recognise identifier '%s'" identifier)
     in
-    match CCList.fold_left parse (Some (None, None)) tail with
-    | None ->
+    endian
+    >>= fun endian ->
+    let endian_or_default = CCOpt.get_or ~default:be endian in
+    match (head, endian, endian_or_default) with
+    | "i8", None, _ ->
+        let d = Decode.int default_encoding in
+        Ok (dec_enc ~identifier d Encode.i8)
+    | "i16", _, endian ->
+        let d = Decode.int default_encoding in
+        let module E = (val endian : Encode.EndianSig) in
+        Ok (dec_enc ~identifier d E.i16)
+    | "i24", _, endian ->
+        let d = Decode.int default_encoding in
+        let module E = (val endian : Encode.EndianSig) in
+        Ok (dec_enc ~identifier d E.i24)
+    | "i32", _, endian ->
+        let d = Decode.int32 default_encoding in
+        let module E = (val endian : Encode.EndianSig) in
+        Ok (dec_enc ~identifier d E.i32)
+    | "i64", _, endian ->
+        let d = Decode.int64 default_encoding in
+        let module E = (val endian : Encode.EndianSig) in
+        Ok (dec_enc ~identifier d E.i64)
+    | "utf8", None, _ -> Ok (dec_enc ~identifier Decode.utf8 Encode.utf8)
+    | "utf16", _, endian ->
+        let module E = (val endian : Encode.EndianSig) in
+        Ok (dec_enc ~identifier Decode.utf8 E.utf16)
+    | _ ->
         Error
-          (Printf.sprintf "a Couldn't recognise identifier '%s'" identifier)
-    | Some (endian, base) ->
-        let endian_or_default = CCOpt.get_or ~default:be endian in
-        ( match (head, endian, endian_or_default, base) with
-        | "i8", None, _, Some base ->
-            let module B = (val base : Decode.BaseSig) in
-            Ok (dec_enc ~identifier B.int Encode.i8)
-        | "i16", _, endian, Some base ->
-            let module B = (val base : Decode.BaseSig) in
-            let module E = (val endian : Encode.EndianSig) in
-            Ok (dec_enc ~identifier B.int E.i16)
-        | "i24", _, endian, Some base ->
-            let module B = (val base : Decode.BaseSig) in
-            let module E = (val endian : Encode.EndianSig) in
-            Ok (dec_enc ~identifier B.int E.i24)
-        | "i32", _, endian, Some base ->
-            let module B = (val base : Decode.BaseSig) in
-            let module E = (val endian : Encode.EndianSig) in
-            Ok (dec_enc ~identifier B.int32 E.i32)
-        | "i64", _, endian, Some base ->
-            let module B = (val base : Decode.BaseSig) in
-            let module E = (val endian : Encode.EndianSig) in
-            Ok (dec_enc ~identifier B.int64 E.i64)
-        | "utf8", None, _, None ->
-            Ok (dec_enc ~identifier Decode.utf8 Encode.utf8)
-        | "utf16", _, endian, None ->
-            let module E = (val endian : Encode.EndianSig) in
-            Ok (dec_enc ~identifier Decode.utf8 E.utf16)
-        | _ ->
-            Error
-              (Printf.sprintf "b Couldn't recognise identifier '%s'" identifier)
-        )
+          (Printf.sprintf "b Couldn't recognise identifier '%s'" identifier)
 
 
-  let literal identifier values : (string, string) result =
-    parse_literal identifier
+  let literal identifier values default_encoding : (string, string) result =
+    parse_literal identifier default_encoding
     >>= fun dec_enc -> Util.result_map dec_enc values >>| CCString.concat ""
 end
 
@@ -223,8 +218,8 @@ let eval_load (name : string) (env : Env.t) : expr_return =
 let eval_computation (comp : Ast.computation) (env : Env.t) : expr_return =
   match comp with
   | Ast.{ identifier; parameters = []; _ } -> eval_load identifier env
-  | Ast.{ identifier; parameters; _ } ->
-      Literals.literal identifier parameters
+  | Ast.{ identifier; parameters; default_encoding } ->
+      Literals.literal identifier parameters default_encoding
       >>| fun output -> (Env.empty, Output.plain output)
 
 
